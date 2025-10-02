@@ -1,0 +1,31 @@
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Playbook
+metadata:
+  name: haproxy-config
+spec:
+  repositoryRef:
+    name: sample-ssh
+  playbookPath: playbooks/haproxy.yml
+  inventoryPath: inventory/hosts
+  secrets:
+    env:
+      - envVarName: HCLOUD_TOKEN
+        secretRef:
+          name: hcloud-token
+          key: token
+    fileMounts:
+      - secretRef:
+          name: ssh-credentials
+        mountPath: /ssh-keys
+        items:
+          - key: id_rsa
+            path: id_rsa
+  runtime:
+    image: kenchrcum/ansible-runner:12
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

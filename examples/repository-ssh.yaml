@@ -1,0 +1,19 @@
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Repository
+metadata:
+  name: sample-ssh
+spec:
+  url: git@github.com:cloud37/ansible.git
+  branch: main
+  auth:
+    method: ssh
+    secretRef:
+      name: repo-ssh-key  # type: kubernetes.io/ssh-auth with key 'ssh-privatekey'
+  ssh:
+    knownHostsConfigMapRef:
+      name: github-known-hosts
+    strictHostKeyChecking: true
+  paths:
+    playbookDir: playbooks
+    inventoryDir: inventory
+    requirementsFile: requirements.yml

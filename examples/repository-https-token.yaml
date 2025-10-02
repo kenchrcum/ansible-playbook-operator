@@ -1,0 +1,14 @@
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Repository
+metadata:
+  name: sample-https
+spec:
+  url: https://github.com/cloud37/ansible
+  branch: main
+  auth:
+    method: token
+    secretRef:
+      name: repo-token  # Opaque secret with key 'token'
+  paths:
+    playbookDir: playbooks
+    inventoryDir: inventory

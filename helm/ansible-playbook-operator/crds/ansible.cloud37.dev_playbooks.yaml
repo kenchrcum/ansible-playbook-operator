@@ -1,0 +1,211 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: playbooks.ansible.cloud37.dev
+spec:
+  group: ansible.cloud37.dev
+  names:
+    kind: Playbook
+    listKind: PlaybookList
+    plural: playbooks
+    singular: playbook
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Repo
+          jsonPath: .spec.repositoryRef.name
+          type: string
+        - name: Playbook
+          jsonPath: .spec.playbookPath
+          type: string
+        - name: Ready
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+          type: string
+        - name: Age
+          jsonPath: .metadata.creationTimestamp
+          type: date
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: Playbook and execution environment
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required: [repositoryRef, playbookPath]
+              properties:
+                repositoryRef:
+                  type: object
+                  required: [name]
+                  properties:
+                    name:
+                      type: string
+                playbookPath:
+                  type: string
+                inventoryPath:
+                  type: string
+                inventoryPaths:
+                  type: array
+                  items:
+                    type: string
+                ansibleCfgPath:
+                  type: string
+                extraVars:
+                  type: object
+                  additionalProperties: true
+                extraVarsSecretRefs:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name:
+                        type: string
+                secrets:
+                  type: object
+                  properties:
+                    env:
+                      type: array
+                      items:
+                        type: object
+                        required: [envVarName, secretRef]
+                        properties:
+                          envVarName:
+                            type: string
+                          secretRef:
+                            type: object
+                            required: [name, key]
+                            properties:
+                              name:
+                                type: string
+                              key:
+                                type: string
+                    envFromSecretRefs:
+                      type: array
+                      items:
+                        type: object
+                        required: [name]
+                        properties:
+                          name:
+                            type: string
+                    fileMounts:
+                      type: array
+                      items:
+                        type: object
+                        required: [secretRef, mountPath]
+                        properties:
+                          secretRef:
+                            type: object
+                            required: [name]
+                            properties:
+                              name:
+                                type: string
+                          mountPath:
+                            type: string
+                          items:
+                            type: array
+                            items:
+                              type: object
+                              required: [key, path]
+                              properties:
+                                key:
+                                  type: string
+                                path:
+                                  type: string
+                    vaultPasswordSecretRef:
+                      type: object
+                      required: [name]
+                      properties:
+                        name:
+                          type: string
+                runtime:
+                  type: object
+                  properties:
+                    image:
+                      type: string
+                      default: "kenchrcum/ansible-runner:latest"
+                    serviceAccountName:
+                      type: string
+                    imagePullSecrets:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                    resources:
+                      type: object
+                      properties:
+                        limits:
+                          type: object
+                        requests:
+                          type: object
+                    nodeSelector:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    tolerations:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    affinity:
+                      type: object
+                      additionalProperties: true
+                    securityContext:
+                      type: object
+                      additionalProperties: true
+                    podSecurityContext:
+                      type: object
+                      additionalProperties: true
+                    volumes:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    volumeMounts:
+                      type: array
+                      items:
+                        type: object
+                        additionalProperties: true
+                    activeDeadlineSeconds:
+                      type: integer
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  format: int64
+                validated:
+                  type: boolean
+                lastValidationTime:
+                  type: string
+                  format: date-time
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
