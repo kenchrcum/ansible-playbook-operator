@@ -21,7 +21,7 @@ spec:
           jsonPath: .spec.playbookRef.name
           type: string
         - name: Schedule
-          jsonPath: .spec.schedule
+          jsonPath: .status.computedSchedule
           type: string
         - name: Suspended
           jsonPath: .spec.suspend
@@ -55,6 +55,7 @@ spec:
                       type: string
                 schedule:
                   type: string
+                  description: Cron expression or one of @hourly-random, @daily-random, @weekly-random, @monthly-random, @yearly-random
                 suspend:
                   type: boolean
                   default: false
@@ -89,6 +90,8 @@ spec:
                 observedGeneration:
                   type: integer
                   format: int64
+                computedSchedule:
+                  type: string
                 lastRunTime:
                   type: string
                   format: date-time

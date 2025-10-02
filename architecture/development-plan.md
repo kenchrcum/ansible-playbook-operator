@@ -90,7 +90,14 @@ Defines when a Playbook is executed by creating CronJobs (which spawn Jobs).
 
 Spec:
 - `playbookRef` (object, required): `name` (+ optional `namespace` if allowed)
-- `schedule` (string, required): cron expression
+- `schedule` (string, required): either a standard cron expression or one of the macros `@hourly-random`, `@daily-random`, `@weekly-random`, `@monthly-random`, `@yearly-random`
+  - `@hourly-random`: deterministic random minute (0–59)
+  - `@daily-random`: deterministic random minute (0–59) and hour (0–23)
+  - `@weekly-random`: deterministic random minute (0–59), hour (0–23), and day-of-week (0–6)
+  - `@monthly-random`: deterministic random minute (0–59), hour (0–23), and day-of-month (1–28) for universal validity
+  - `@yearly-random`: deterministic random minute (0–59), hour (0–23), month (1–12), and day-of-month (1–28) for universal validity
+  - Randomization is stable per-object using a seed derived from `metadata.uid` (fallback: namespaced name)
+  - The concrete cron is published to `status.computedSchedule`
 - `suspend` (bool, default: false)
 - `startingDeadlineSeconds` (int, optional)
 - `concurrencyPolicy` (enum: `Allow|Forbid|Replace`, default: `Forbid`)
@@ -102,6 +109,7 @@ Spec:
 
 Status:
 - `observedGeneration` (int)
+- `computedSchedule` (string): concrete cron calculated from `spec.schedule` when a macro is used
 - `lastRunTime` (timestamp)
 - `nextRunTime` (timestamp)
 - `lastJobRef` (namespaced name)
