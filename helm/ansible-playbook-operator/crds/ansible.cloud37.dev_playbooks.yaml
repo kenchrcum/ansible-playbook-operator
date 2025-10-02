@@ -43,6 +43,11 @@ spec:
             spec:
               type: object
               required: [repositoryRef, playbookPath]
+              x-kubernetes-validations:
+                - rule: "!(has(self.inventoryPath) && has(self.inventoryPaths))"
+                  message: Only one of inventoryPath or inventoryPaths may be set
+                - rule: "!has(self.secrets) || !has(self.secrets.env) || self.secrets.env.all(e, size(e.envVarName) > 0)"
+                  message: envVarName must be non-empty when secrets.env is used
               properties:
                 repositoryRef:
                   type: object

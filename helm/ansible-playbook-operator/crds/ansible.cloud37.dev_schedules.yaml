@@ -46,6 +46,9 @@ spec:
             spec:
               type: object
               required: [playbookRef, schedule]
+              x-kubernetes-validations:
+                - rule: "has(self.schedule) && size(self.schedule) > 0"
+                  message: schedule must be a non-empty string
               properties:
                 playbookRef:
                   type: object
