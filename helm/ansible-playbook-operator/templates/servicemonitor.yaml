@@ -1,0 +1,16 @@
+{{- if and .Values.operator.metrics.enabled .Values.operator.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "ansible-playbook-operator.fullname" . }}
+  labels:
+    release: {{ .Values.operator.metrics.serviceMonitor.release | default "monitoring" | quote }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ansible-playbook-operator
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: http-metrics
+      interval: 30s
+{{- end }}

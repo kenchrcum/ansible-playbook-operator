@@ -5,6 +5,12 @@ description = "Kubernetes operator for executing Ansible playbooks with Kopf"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 readme = ""  # intentionally omitted to avoid generating docs automatically
+dependencies = [
+  "kopf>=1.37.4",
+  "kubernetes>=30.0.0",
+  "prometheus-client>=0.20.0",
+  "PyYAML>=6.0.1",
+]
 
 [tool.black]
 line-length = 100

@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ansible-playbook-operator.fullname" . }}
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ansible-playbook-operator
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ansible-playbook-operator
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ include "ansible-playbook-operator.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: operator
+          image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          args:
+            - "-m"
+            - "ansible_operator.main"
+            - "operator"
+          env:
+            - name: PYTHONUNBUFFERED
+              value: "1"
+            - name: KOPF_LEADER_ELECTION
+              value: {{ ternary "true" "false" .Values.operator.leaderElection | quote }}
+            - name: WATCH_SCOPE
+              value: {{ .Values.operator.watch.scope | quote }}
+          resources:
+            {{- toYaml .Values.operator.resources | nindent 12 }}

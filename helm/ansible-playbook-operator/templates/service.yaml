@@ -1,0 +1,18 @@
+{{- if .Values.operator.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ansible-playbook-operator.fullname" . }}-metrics
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http-metrics
+      port: 8080
+      targetPort: 8080
+{{- end }}
