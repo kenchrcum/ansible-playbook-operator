@@ -1,0 +1,32 @@
+operator:
+  image:
+    repository: ghcr.io/cloud37/ansible-playbook-operator
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  leaderElection: true
+  watch:
+    # one of: namespace|all
+    scope: namespace
+  metrics:
+    enabled: true
+  serviceAccount:
+    create: true
+    name: ""
+
+executorDefaults:
+  image:
+    repository: kenchrcum/ansible-runner
+    tag: latest
+    pullPolicy: IfNotPresent
+
+rbac:
+  preset: minimal  # minimal|scoped|cluster-admin
+
+# CRDs will be delivered under crds/ in the chart (added later)

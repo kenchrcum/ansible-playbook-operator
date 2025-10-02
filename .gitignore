@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Virtualenv
+.venv/
+
+# Editors
+.vscode/
+.idea/
+
+# Build
+build/
+dist/
+
+# Helm
+helm/**/charts/
+helm/**/tmp/
+
+# Misc
+.DS_Store
