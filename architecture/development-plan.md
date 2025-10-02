@@ -121,42 +121,144 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 ## Phase 3: Operator Architecture
 
 ### 3. Reconciliation model
-- Handlers: `@kopf.on.create|update|delete|resume` for each CRD; idempotent, event-driven
-- Adopt-or-recreate pattern with Server-Side Apply; patch only owned fields with field manager `ansible-operator`
-- Use Finalizers to clean up derived resources (CronJobs/Jobs/PVCs)
-- Emit Kubernetes Events for key transitions (ValidateFailed, JobCreated, JobSucceeded/Failed)
-- Labels/annotations for traceability: link Jobs to CRs, include run id and `resolvedRevision`
+
+#### 3.1 Handler registration & controller settings
+- Register `@kopf.on.create`, `@kopf.on.update`, `@kopf.on.resume`, `@kopf.on.delete` for `Repository`, `Playbook`, and `Schedule`.
+- Idempotent handlers only — every step must be safe to repeat after operator restarts.
+- Configure controller limits: bounded worker pool, rate-limited requeues, leader election on by default.
+
+#### 3.2 Ownership, field management, and finalizers
+- Use Server-Side Apply with field manager `ansible-operator`; patch only fields owned by the operator.
+- Set `ownerReferences` on derived resources (CronJobs, Jobs, probe Jobs) pointing to the source CR.
+- Add a single finalizer `ansible.cloud37.dev/finalizer` per CR:
+  - `Repository`: remove any ephemeral probe Jobs/Pods created for validation.
+  - `Playbook`: no derived long-lived resources; ensure orphan Jobs are left to TTL controller or are cleaned if labeled as derived.
+  - `Schedule`: delete managed CronJob and optionally clean history (respecting history limits and TTL).
+
+#### 3.3 Cross-resource indexing & triggers
+- Maintain indices to map dependencies:
+  - `Repository.name -> [Playbook...]`
+  - `Playbook.name -> [Schedule...]`
+- On `Repository` change: revalidate dependent `Playbook`s.
+- On `Playbook` change: reconcile dependent `Schedule`s.
+- Guard against thundering herds with rate-limited requeues.
+
+#### 3.4 Repository reconciliation (desired vs. observed)
+- Validate spec: URL format, auth method/secret presence, known hosts reference if SSH and strict checking is true.
+- Connectivity probe (optional, fast):
+  - Strategy A (default later phase): create a short-lived probe Job (e.g., `git ls-remote`) using a minimal git image; mount secrets/config.
+  - Strategy B (fallback): skip external call; mark `AuthValid` unknown, rely on first Playbook run to surface issues.
+- Status updates:
+  - Conditions: `AuthValid` (True/False/Unknown), `CloneReady` (True/False/Unknown), `Ready` derived.
+  - `resolvedRevision`: if `spec.revision` is set, copy to status; otherwise leave empty (resolved at execution time).
+  - Emit Events on transitions: `ValidateSucceeded`, `ValidateFailed`.
+
+#### 3.5 Playbook reconciliation
+- Validate spec and references: ensure `Repository` exists and is Ready (or report `RepoNotReady`).
+- Compute execution template inputs (no Job creation here): inventory path(s), vars sources, secrets mounts, runtime overrides.
+- Status updates:
+  - Conditions: `Ready` if paths and references validate; `InvalidPath` or `RepoNotReady` otherwise.
+  - Emit Events: `ValidateSucceeded`, `ValidateFailed` with concise reasons.
+
+#### 3.6 Schedule reconciliation
+- Compute `status.computedSchedule` from `spec.schedule`:
+  - If macro (`@hourly|daily|weekly|monthly|yearly-random`), derive a deterministic schedule using a seed from `metadata.uid`.
+  - Otherwise, echo the provided cron.
+- Render desired CronJob spec:
+  - Populate pod template from `Playbook` runtime and secrets; set history limits, backoff, TTL, concurrency policy.
+  - Apply security defaults (non-root, no privilege escalation, read-only FS, seccomp RuntimeDefault, drop caps).
+  - Label with traceability keys (below).
+- Apply with SSA; adopt existing CronJob if labels/owner match; patch only owned fields.
+- Status updates:
+  - Conditions: `Ready` if CronJob matches desired; `BlockedByConcurrency` when appropriate.
+  - `lastRunTime`, `nextRunTime`, `lastJobRef` are updated from observed CronJob/Job status when available.
+  - Emit Events: `CronJobCreated`, `CronJobPatched`, `CronJobAdopted`.
+
+#### 3.7 Traceability labels/annotations (on CronJobs/Jobs)
+- `ansible.cloud37.dev/managed-by: ansible-operator`
+- `ansible.cloud37.dev/owner-kind: Schedule`
+- `ansible.cloud37.dev/owner-name: <ns.name>`
+- `ansible.cloud37.dev/owner-uid: <metadata.uid>`
+- `ansible.cloud37.dev/revision: <repo.resolvedRevision or play run commit>` (on Jobs)
+- `ansible.cloud37.dev/run-id: <uuid>` (on Jobs)
+
+#### 3.8 Events and condition semantics
+- Standard event reasons:
+  - ReconcileStarted, ReconcileFailed, ValidateSucceeded, ValidateFailed,
+  - CronJobCreated, CronJobPatched, CronJobAdopted,
+  - JobCreated, JobSucceeded, JobFailed, CleanupSucceeded, CleanupFailed.
+- Conditions are authoritative for user-facing state; Events are ephemeral but helpful for debugging.
+
+#### 3.9 Drift detection and SSA strategy
+- Use SSA diff to detect drift only within operator-owned fields; do not overwrite user-managed fields.
+- If a resource is found without owner labels but matches signature, adopt only when safe (matching UID in annotations) to avoid hijacking.
+- Never force-apply unless recovering from a previous operator field manager; prefer granular patches.
+
+#### 3.10 Requeues and backoff
+- Requeue on transient failures with exponential backoff; cap max delay.
+- Periodic soft requeue (e.g., every 10–15 minutes) for `Schedule` to refresh `nextRunTime` if needed.
+- Avoid time-based loops where possible; rely on Kubernetes events/status.
 
 ### 4. Git and execution separation
-- Operator validates connectivity and computes desired state; cloning happens inside executor Jobs for isolation
-- Optional caching of collections/roles via PVC mounted at `~/.ansible` (configurable)
-- For deterministic runs: when `spec.revision` is set on Repository, executor checks out that SHA and records it on the Job and `status`
+- Separation of concerns:
+  - Operator remains lightweight and does not hold repository content; it validates refs and renders desired runtime configuration
+  - Executor Job performs clone/checkout and runs Ansible; isolation avoids leaking credentials into operator memory
+- Determinism:
+  - If `Repository.spec.revision` is set, executor must checkout that exact commit; record it in Job labels and `Schedule.status.lastRunRevision`
+  - Otherwise, executor checks out the branch tip and records the resolved commit
+- Authentication:
+  - Use typed Secrets (`kubernetes.io/ssh-auth`, Opaque token) per `Repository.spec.auth`
+  - Enforce known_hosts pinning when `ssh.strictHostKeyChecking` is true by mounting the provided ConfigMap
+  - Avoid runtime `ssh-keyscan` by default; allow opt-in via a `Playbook.runtime.allowSshKeyscan` future flag
+- Repo options:
+  - Submodules and LFS support follow `Repository.spec.git` toggles
+  - Shallow clone is preferred for performance unless `revision` requires full history
+- Caching:
+  - Optional PVC cache for `~/.ansible` collections/roles to speed repeated runs; scope by namespace and label by owner to reduce contention
+  - Do not cache repository working tree unless an advanced cache strategy is explicitly configured
 
 ### 5. Job and CronJob generation
-- Job containers use the executor image (default `kenchrcum/ansible-runner`), overridable in `Playbook.runtime.image`
-- Construct `ansible-playbook` command with inventory, requirements install (if file exists), tags (future), and extra vars
-- Include `activeDeadlineSeconds`, `backoffLimit`, `ttlSecondsAfterFinished`
+- Image selection:
+  - Default executor image `kenchrcum/ansible-runner` (digest pinned in chart); overridable via `Playbook.runtime.image`
+- Command construction:
+  - Install galaxy requirements if `requirements.yml` exists
+  - Build `ansible-playbook` command with inventory path(s), `--extra-vars` from `extraVars` and `extraVarsSecretRefs`
+  - Support tags (future) and `ansible.cfg` if provided
+- Secrets and config injection:
+  - Environment: explicit env var mappings and full `envFromSecretRefs`
+  - Files: `fileMounts` with key-to-path mappings and a vault password file if configured
+  - SSH: mount `kubernetes.io/ssh-auth` secret at a secure path and set permissions before use
+- CronJob spec:
+  - Respect `successfulJobsHistoryLimit`, `failedJobsHistoryLimit`, `concurrencyPolicy`, `startingDeadlineSeconds`, `ttlSecondsAfterFinished`
+  - Template pod-level knobs from `Playbook.runtime` (resources, node/pod scheduling, imagePullSecrets)
+  - Set `activeDeadlineSeconds` and `backoffLimit` according to `Schedule.spec`
 - Security defaults for executor pods:
   - `runAsNonRoot: true`, `runAsUser: 1000`, `runAsGroup: 1000`
   - `allowPrivilegeEscalation: false`, `readOnlyRootFilesystem: true`
   - `seccompProfile: RuntimeDefault`, drop all Linux capabilities
+  - Optional `fsGroup` when file-mounted secrets require shared access
+- Traceability:
+  - Labels: managed-by, owner-kind/name/uid, run-id, resolved revision; annotate with rendered command sans secrets
+  - Emit Events on creation/patch/adoption failures and successes
 
 ### 6. Concurrency and backpressure
-- Respect CronJob `concurrencyPolicy`
-- Configure Kopf worker limits (e.g., `max-workers`) and rate limiting to protect the API server
-- Use `@kopf.on.resume` to requeue and reconcile after operator restarts, ensuring existing resources are adopted
+- Respect CronJob `concurrencyPolicy` and surface conflicts via `Schedule` Conditions
+- Configure Kopf worker pool (e.g., 4–8 workers) and exponential backoff requeues for transient errors
+- Debounce cascaded reconciles: coalesce bursts from repository changes into a bounded work queue
+- Use `@kopf.on.resume` to adopt existing resources and recompute `status.computedSchedule`
 
 ## Phase 4: Security and Permissions
 
 ### 7. RBAC presets (least privilege by default)
 - Minimal (default):
   - Namespaced permissions to manage `jobs` and `cronjobs` (create/get/list/watch/patch)
-  - Read `events`
-  - Read `secrets` only in the operator namespace and/or referenced secrets (use `resourceNames` where feasible)
+  - Read `events` and `pods/log` in namespace for observability
+  - Read only Secrets referenced by `Playbook`/`Repository` (use `resourceNames` where feasible)
 - Scoped:
-  - Values-driven set of allowed namespaces/resources; separate ServiceAccount for executor Jobs is supported
+  - Values-driven allowlists of namespaces/resources; provide a separate ServiceAccount for executor Jobs
 - Cluster Admin (opt-in):
-  - Full cluster access for playbooks that manage cluster resources; explicitly disabled by default
+  - Full cluster access for playbooks managing cluster resources; disabled by default and gated via Helm value
+  - Document risks and provide example PSP/PSA labels and NetworkPolicies
 
 ### 8. Multi-tenancy and isolation
 - Allow per-Playbook `serviceAccountName` to run Jobs under a least-privilege SA distinct from the operator
@@ -166,17 +268,16 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 ## Phase 5: Deployment and Packaging
 
 ### 9. Helm chart
-- Chart structure:
-  - `crds/` (separate files per CRD; do NOT template schema)
-  - `templates/` (Deployment, RBAC, ServiceAccount, Config, optional Service/ServiceMonitor, NetworkPolicy)
-  - `values.yaml` split into `operator.*` and `executorDefaults.*` and `rbac.*`
-- Configuration via values:
-  - Image versions and pinned digests for operator and executor
-  - RBAC preset selection
-  - Watch scope (namespace/all-namespaces)
-  - Resource limits for operator and executor
-  - Metrics and ServiceMonitor enablement
-  - Optional PVC for caching
+- Structure:
+  - `crds/`: one file per CRD (no templating of schema)
+  - `templates/`: Deployment, RBAC, ServiceAccount, Config, Service(+ServiceMonitor), NetworkPolicy
+  - `values.yaml`: `operator.*`, `executorDefaults.*`, `rbac.*`, `watch.*`, `metrics.*`, `cache.*`
+- Values highlights:
+  - Pin images by digest in releases
+  - Enable leader election and configure namespace/all-namespaces watch
+  - Toggle ServiceMonitor and provide scrape labels
+  - Optional NetworkPolicies limiting egress to Git endpoints and package registries
+  - Optional PVC cache configuration
 
 ### 10. Container images
 - Operator image: `python:3.11-slim` with `kopf`, `kubernetes`, `pyyaml`, and minimal tools; no Ansible required in the operator image
@@ -186,25 +287,37 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 ## Phase 6: Observability and Testing
 
 ### 11. Observability
-- Structured JSON logs with correlation IDs (resource UID + run id)
-- Kubernetes Events for user-facing feedback
-- Prometheus metrics: reconcile durations/counts, queue depth, job outcomes; expose via Service + optional ServiceMonitor
-- `status.conditions` is the primary user-facing health surface
+- Logs: structured JSON with fields `controller`, `resource`, `uid`, `runId`, `event`, `reason`; never log secret values
+- Events: concise reasons/messages; emitted on validations, apply/adopt, job lifecycle
+- Metrics (Prometheus):
+  - `ansible_operator_reconcile_total{kind,result}`
+  - `ansible_operator_reconcile_duration_seconds{kind}` (histogram)
+  - `ansible_operator_workqueue_depth`
+  - `ansible_operator_job_runs_total{result}` and `ansible_operator_job_duration_seconds`
+  - Expose via Service; provide optional ServiceMonitor in chart
+- Status: Conditions are the authoritative source for user state; maintain `computedSchedule`, `lastRunTime`, and `lastJobRef`
 
 ### 12. Testing Strategy
-- Unit tests: CRD schema defaults/validation, command rendering, secret resolution, auth matrix (SSH, HTTPS PAT, basic)
-- Integration tests (kind/minikube): deploy operator, create CRs, validate Jobs, known hosts handling
-- Concurrency/race tests: overlapping schedules with Forbid/Replace, operator restarts (`on.resume`)
-- Upgrade tests: CRD version bumps and Helm upgrades with existing CRs
-- Security tests: ensure secrets never leak in logs; least-privilege RBAC verification
+- Unit tests:
+  - CRD schemas: defaults, mutually exclusive fields, CEL rules
+  - Command rendering: inventory handling, extra vars, secret injection (env/envFrom/files), vault password
+  - Schedule macros: deterministic `computedSchedule` for same UID; distribution across minutes/hours/days
+- Integration (kind/minikube):
+  - Operator deploy, CR creation, CronJob materialization, Job success/failure paths
+  - Auth matrix (SSH known_hosts pinned, HTTPS token); missing secret failure conditions
+  - Security defaults enforced on pods (non-root, readonly rootfs)
+  - Multi-resource cascade: changing `Repository` revalidates `Playbook` and updates `Schedule`
+- Concurrency/race: overlapping schedules with Forbid/Replace, many schedules using random macros, operator restarts with `on.resume`
+- Upgrade: CRD version bumps and Helm upgrades with existing CRs and running schedules
+- Security: secret redaction in logs, RBAC denied cases produce clear Events/Conditions
 
 ## Phase 7: CI/CD and Release
 
 ### 13. CI/CD pipeline
-- Build and test on PRs; ruff/black/mypy/pytest; chart lint (ct)
-- Image scanning (Trivy/Grype), SBOM (Syft), pinned image digests
-- Release on tags: publish operator image and Helm chart
-- Optional: provenance/attestations (SLSA-style) for images and charts
+- PR checks: ruff, black, mypy, unit tests, minimal kind e2e smoke, chart lint (`helm lint`/`chart-testing`)
+- Security: Trivy/Grype image scans, Syft SBOM, secret scanning, dependency audit
+- Releases: tag-driven build, push image and chart with digests; generate changelog
+- Supply-chain: provenance/attestations (SLSA-style) optional but recommended
 
 ## Rollout, Upgrades, and Compatibility
 - Start at `v1alpha1` with clear migration notes on any breaking CRD changes; use new versions rather than in-place breaking changes
