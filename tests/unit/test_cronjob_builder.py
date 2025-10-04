@@ -27,8 +27,8 @@ def test_cronjob_builder_uses_computed_schedule_and_image():
     assert container["image"] == "kenchrcum/ansible-runner:12"
     # Verify security context defaults
     security_context = container["securityContext"]
-    assert security_context["runAsUser"] == 1001
-    assert security_context["runAsGroup"] == 1001
+    assert security_context["runAsUser"] == 1000
+    assert security_context["runAsGroup"] == 1000
     assert security_context["allowPrivilegeEscalation"] is False
     assert security_context["readOnlyRootFilesystem"] is True
     assert security_context["seccompProfile"]["type"] == "RuntimeDefault"

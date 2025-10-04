@@ -18,6 +18,7 @@ def build_cronjob(
     computed_schedule: str,
     playbook: dict[str, Any],
     repository: dict[str, Any] | None = None,
+    known_hosts_available: bool = False,
     schedule_spec: dict[str, Any],
     owner_uid: str,
     owner_api_version: str = f"{API_GROUP}/v1alpha1",
@@ -44,8 +45,8 @@ def build_cronjob(
 
     pod_security_context = runtime.get("podSecurityContext") or {}
     container_security_context = runtime.get("securityContext") or {
-        "runAsUser": 1001,
-        "runAsGroup": 1001,
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
         "allowPrivilegeEscalation": False,
         "readOnlyRootFilesystem": True,
         "seccompProfile": {"type": "RuntimeDefault"},
@@ -114,7 +115,7 @@ def build_cronjob(
     if auth_method == "ssh" and auth_secret_name:
         volumes.append({"name": "ssh-auth", "secret": {"secretName": auth_secret_name}})
         volume_mounts.append({"name": "ssh-auth", "mountPath": "/ssh-auth", "readOnly": True})
-    if ssh_known_hosts_cm:
+    if ssh_known_hosts_cm and known_hosts_available:
         volumes.append({"name": "ssh-known", "configMap": {"name": ssh_known_hosts_cm}})
         volume_mounts.append(
             {"name": "ssh-known", "mountPath": "/ssh-knownhosts", "readOnly": True}
@@ -144,13 +145,13 @@ def build_cronjob(
     git_auth_setup: list[str] = ["mkdir -p $HOME/.ssh"]
     if auth_method == "ssh":
         git_auth_setup.append("install -m 0600 /ssh-auth/ssh-privatekey $HOME/.ssh/id_rsa")
-        if strict_host_key and ssh_known_hosts_cm:
+        if strict_host_key and known_hosts_available:
             git_auth_setup.append(
                 'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa \
                     -o UserKnownHostsFile=/ssh-knownhosts/known_hosts \
                     -o StrictHostKeyChecking=yes"'
             )
-        elif strict_host_key and not ssh_known_hosts_cm:
+        elif strict_host_key and not known_hosts_available:
             # Enforce pinning: fail fast if strict enabled but no known hosts provided
             git_auth_setup.append(
                 "echo 'known_hosts not provided while strictHostKeyChecking=true' >&2; exit 1"

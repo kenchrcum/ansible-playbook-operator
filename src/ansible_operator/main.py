@@ -270,6 +270,7 @@ def reconcile_schedule(
             playbook_obj = {"spec": {"runtime": {}}}
 
         repository_obj: dict[str, Any] | None = None
+        known_hosts_available: bool = False
         try:
             repo_ref = (playbook_obj.get("spec") or {}).get("repositoryRef") or {}
             if repo_ref.get("name"):
@@ -280,6 +281,28 @@ def reconcile_schedule(
                     plural="repositories",
                     name=repo_ref["name"],
                 )
+                # Check if known hosts ConfigMap exists (optional for non-strict mode)
+                if repository_obj:
+                    repo_spec = repository_obj.get("spec") or {}
+                    ssh_cfg = repo_spec.get("ssh") or {}
+                    known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
+                    if known_hosts_cm:
+                        try:
+                            v1 = client.CoreV1Api()
+                            v1.read_namespaced_config_map(known_hosts_cm, namespace)
+                            known_hosts_available = True
+                        except client.exceptions.ApiException as e:
+                            if e.status == 404 and ssh_cfg.get("strictHostKeyChecking", True):
+                                _emit_event(
+                                    kind="Schedule",
+                                    namespace=namespace,
+                                    name=name,
+                                    reason="ConfigMapNotFound",
+                                    message=f"SSH known hosts ConfigMap '{known_hosts_cm}' \
+                                        not found - pod will fail with strict checking",
+                                    type_="Warning",
+                                )
+                                # For non-strict mode, we don't mount the ConfigMap but continue
         except Exception:
             repository_obj = None
 
@@ -289,6 +312,7 @@ def reconcile_schedule(
             computed_schedule=computed,
             playbook=playbook_obj,
             repository=repository_obj,
+            known_hosts_available=known_hosts_available,
             schedule_spec=spec,
             owner_uid=uid,
             owner_api_version=f"{API_GROUP}/v1alpha1",
@@ -298,14 +322,24 @@ def reconcile_schedule(
 
         # Apply via Server-Side Apply (SSA) with our field manager — create or patch.
         batch_api = client.BatchV1Api()
-        batch_api.patch_namespaced_cron_job(
-            name=name,
-            namespace=namespace,
-            body=cj_manifest,
-            field_manager="ansible-operator",
-            force=True,
-            content_type="application/apply-patch+yaml",
-        )
+        try:
+            # Try to create first (SSA apply)
+            batch_api.create_namespaced_cron_job(
+                namespace=namespace,
+                body=cj_manifest,
+                field_manager="ansible-operator",
+            )
+        except client.exceptions.ApiException as e:
+            if e.status == 409:
+                # Already exists; patch with SSA apply
+                batch_api.patch_namespaced_cron_job(
+                    name=name,
+                    namespace=namespace,
+                    body=cj_manifest,
+                    field_manager="ansible-operator",
+                )
+            else:
+                raise
         logger.info(f"Applied CronJob via SSA schedule/{name}")
         _emit_event(
             kind="Schedule",
