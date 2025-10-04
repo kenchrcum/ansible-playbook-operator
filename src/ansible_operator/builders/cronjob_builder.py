@@ -41,9 +41,12 @@ def build_cronjob(
 
     pod_security_context = runtime.get("podSecurityContext") or {}
     container_security_context = runtime.get("securityContext") or {
-        "runAsNonRoot": True,
+        "runAsUser": 1001,
+        "runAsGroup": 1001,
         "allowPrivilegeEscalation": False,
         "readOnlyRootFilesystem": True,
+        "seccompProfile": {"type": "RuntimeDefault"},
+        "capabilities": {"drop": ["ALL"]},
     }
 
     cronjob_name = f"{schedule_name}"

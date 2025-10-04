@@ -13,13 +13,11 @@ from .utils.schedule import compute_computed_schedule
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
     # Prefer SSA, set reasonable timeouts and workers
-    # Avoid annotation writes by using status-backed progress/diff bases where supported.
+    # Use annotation-based diffbase storage to avoid conflicts with status.kopf field management.
     # Fallback to smart storages which adapt to cluster capabilities.
     try:
         settings.persistence.progress_storage = kopf.StatusProgressStorage()
-        settings.persistence.diffbase_storage = kopf.StatusDiffBaseStorage(
-            field="status.kopf.diffbase"
-        )
+        settings.persistence.diffbase_storage = kopf.AnnotationDiffBaseStorage()
     except Exception:
         settings.persistence.progress_storage = kopf.SmartProgressStorage()
     settings.posting.level = 0  # default
