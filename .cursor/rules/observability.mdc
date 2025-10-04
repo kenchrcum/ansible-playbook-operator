@@ -1,0 +1,12 @@
+---
+globs: "**/*.py"
+description: "Observability standards for logging, metrics, and events."
+---
+# Observability
+
+- **Kubernetes Events**: Emit Kubernetes Events on meaningful state changes of custom resources.
+- **Prometheus Metrics**: Expose Prometheus metrics for reconciles, queue depth, and job results. A Service and optional ServiceMonitor should be provided.
+- **Structured Logging**:
+  - Use structured JSON logs.
+  - Include correlation IDs, such as the Custom Resource UID and a unique run ID.
+  - **Do not log secrets.**

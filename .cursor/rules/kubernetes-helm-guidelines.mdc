@@ -1,0 +1,29 @@
+---
+globs: "**/*.py,helm/**/*.yaml,examples/**/*.yaml"
+description: "Guidelines for working with Kubernetes resources and Helm charts."
+---
+# Kubernetes and Helm Guidelines
+
+## Kubernetes API Usage
+- Use Server-Side Apply for all Kubernetes resource writes.
+- The field manager must be `ansible-operator`.
+
+## Security
+- Default to minimal RBAC. Escalation is opt-in and explicit in Helm values.
+- For executor pods, ensure the following security context is applied:
+  - `runAsNonRoot: true`
+  - `readOnlyRootFilesystem: true`
+  - `seccompProfile: { type: 'RuntimeDefault' }`
+  - Drop all capabilities (`drop: ["ALL"]`).
+  - `allowPrivilegeEscalation: false`
+- Pin container images by digest in released charts and CI.
+
+## Helm
+- CRDs are stored in `helm/ansible-playbook-operator/crds/` and should not be templated.
+- Helm values should be split between `operator.*`, `executorDefaults.*`, and `rbac.*`.
+- Provide example values for RBAC presets and multi-namespace watch.
+
+## Backward Compatibility (CRDs)
+- CRD changes must follow Kubernetes API versioning conventions.
+- Add new fields, but do not remove or break existing ones.
+- Create a new version (e.g., `v1beta1`) for breaking changes and provide a conversion webhook or migration documentation.

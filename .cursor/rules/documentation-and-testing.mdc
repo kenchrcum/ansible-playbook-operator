@@ -1,0 +1,20 @@
+---
+globs: "**/*.py,**/*.md,tests/**/*.py,examples/**/*.yaml"
+description: "Guidelines for testing, documentation, and quality gates."
+---
+# Documentation and Testing
+
+## Testing
+- Use `pytest` for all tests.
+- Prefer unit tests for business logic.
+- Use kind-based integration tests for controllers.
+- CI must pass linting, type-checking, unit tests, and an integration smoke test.
+- Every Pull Request must update tests and documentation as needed.
+
+## Documentation
+- Keep `architecture/development-plan.md` as a living design document. Update it before implementing significant changes.
+- Examples in the `examples/` directory must be runnable in `kind` or `minikube` and follow security defaults.
+
+## Quality Gates
+- New features must include metrics, events, and status conditions.
+- Reject changes that introduce secret leakage or reduce security defaults.

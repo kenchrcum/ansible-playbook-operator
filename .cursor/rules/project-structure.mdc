@@ -1,0 +1,18 @@
+---
+alwaysApply: true
+description: "Defines the project structure for the Ansible Playbook Operator."
+---
+# Project Structure
+
+- `src/` contains controller entrypoints and services.
+  - `controllers/`: Kubernetes controller logic.
+  - `services/git/`: Git service.
+  - `services/ansible/`: Ansible service.
+  - `k8s/resources/`: Kubernetes resource definitions.
+- `schemas/` for CRDs and JSON schemas. These are not templated in Helm.
+- `helm/` for the Helm chart.
+  - `helm/ansible-playbook-operator/crds/`: CRDs are stored here.
+  - `helm/ansible-playbook-operator/templates/`: Helm templates.
+- `tests/` is split into `unit/` and `integration/`.
+- `examples/` contains minimal, secure-by-default manifests.
+- Key architectural decisions are in [architecture/development-plan.md](mdc:architecture/development-plan.md).

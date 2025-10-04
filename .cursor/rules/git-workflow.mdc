@@ -1,0 +1,19 @@
+---
+description: "Git workflow, branching, and commit conventions for the project."
+---
+# Git Workflow
+
+## Branch Naming
+- `feat/*`: New features
+- `fix/*`: Bug fixes
+- `docs/*`: Documentation changes
+- `chore/*`: Build process, dependency updates, etc.
+- `refactor/*`: Code refactoring without changing external behavior
+- `test/*`: Adding or improving tests
+
+## Commits
+- Use [Conventional Commits](https://www.conventionalcommits.org/).
+- Squash merge Pull Requests.
+- Commits should be small and focused.
+- Commit messages should be meaningful and emphasize the "why" of the change.
+- The body of a PR description should also contain a short "why".
