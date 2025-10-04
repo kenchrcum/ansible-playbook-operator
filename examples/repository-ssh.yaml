@@ -8,7 +8,7 @@ spec:
   auth:
     method: ssh
     secretRef:
-      name: repo-ssh-key  # type: kubernetes.io/ssh-auth with key 'ssh-privatekey'
+      name: ssh-credentials  # type: kubernetes.io/ssh-auth with key 'ssh-privatekey'
   ssh:
     knownHostsConfigMapRef:
       name: github-known-hosts

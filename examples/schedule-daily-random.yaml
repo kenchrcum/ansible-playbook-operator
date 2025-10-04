@@ -1,10 +1,10 @@
 apiVersion: ansible.cloud37.dev/v1alpha1
 kind: Schedule
 metadata:
-  name: haproxy-daily-random
+  name: hello-world-daily-random
 spec:
   playbookRef:
-    name: haproxy-config
+    name: hello-world-config
   schedule: "@daily-random"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
