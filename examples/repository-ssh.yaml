@@ -12,7 +12,7 @@ spec:
   ssh:
     knownHostsConfigMapRef:
       name: github-known-hosts
-    strictHostKeyChecking: true
+    strictHostKeyChecking: false
   paths:
     playbookDir: playbooks
     inventoryDir: inventory
