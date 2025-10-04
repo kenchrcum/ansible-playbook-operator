@@ -1,0 +1,27 @@
+---
+alwaysApply: true
+description: "Always run pre-commit before committing; auto-fix common issues."
+globs: "**/*"
+---
+# Pre-commit Enforcement Rule
+
+Always run `pre-commit` checks locally before committing changes to ensure the repo stays committable and CI passes.
+
+## Required Local Workflow
+- Run `pre-commit run --all-files` before commit.
+- If hooks fail, auto-fix with:
+  - `ruff --fix .` and `ruff format .` (or rely on the hook to fix)
+  - `black .` (if needed; ruff-format usually covers formatting)
+  - Re-run `pre-commit run --all-files` until it passes.
+
+## Typical Fixes Guided by Hooks
+- Import sorting/formatting (I001): reorder imports; group stdlib, third-party, local; use ruff-format.
+- Simplifications (SIM105): prefer `contextlib.suppress(Exception)` over `try/except/pass`.
+- Mypy: remove unused `# type: ignore`, add precise typing, avoid `Any` in public APIs.
+
+## Commit Gate
+- Do not commit if `pre-commit` is failing. Fix locally first, then commit.
+
+References:
+- Project tools: ruff, ruff-format, black, mypy, codespell.
+- See [python-guidelines.mdc](mdc:.cursor/rules/python-guidelines.mdc) and [documentation-and-testing.mdc](mdc:.cursor/rules/documentation-and-testing.mdc).

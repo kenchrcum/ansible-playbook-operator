@@ -17,6 +17,7 @@ def build_cronjob(
     namespace: str,
     computed_schedule: str,
     playbook: dict[str, Any],
+    repository: dict[str, Any] | None = None,
     schedule_spec: dict[str, Any],
     owner_uid: str,
     owner_api_version: str = f"{API_GROUP}/v1alpha1",
@@ -28,7 +29,9 @@ def build_cronjob(
 
     This function is pure and safe to unit-test.
     """
-    runtime = (playbook.get("spec") or {}).get("runtime") or {}
+    spec = playbook.get("spec") or {}
+    runtime = spec.get("runtime") or {}
+    secrets_cfg = spec.get("secrets") or {}
     image: str = runtime.get("image") or image_default
 
     resources: dict[str, Any] = schedule_spec.get("resources") or {}
@@ -49,8 +52,167 @@ def build_cronjob(
         "capabilities": {"drop": ["ALL"]},
     }
 
+    # Build environment variables from secret mappings
+    env_list: list[dict[str, Any]] = []
+    for item in secrets_cfg.get("env") or []:
+        env_var_name = item.get("envVarName")
+        secret_ref = item.get("secretRef") or {}
+        if env_var_name and secret_ref.get("name") and secret_ref.get("key"):
+            env_list.append(
+                {
+                    "name": env_var_name,
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": secret_ref["name"],
+                            "key": secret_ref["key"],
+                        }
+                    },
+                }
+            )
+
+    env_from_list: list[dict[str, Any]] = []
+    for ref in secrets_cfg.get("envFromSecretRefs") or []:
+        name_ref = ref.get("name")
+        if name_ref:
+            env_from_list.append({"secretRef": {"name": name_ref}})
+
+    volumes = list(runtime.get("volumes") or [])
+    volume_mounts = list(runtime.get("volumeMounts") or [])
+    service_account_name = runtime.get("serviceAccountName")
+    active_deadline_seconds = runtime.get("activeDeadlineSeconds")
+
     cronjob_name = f"{schedule_name}"
     owner_name = owner_name or schedule_name
+
+    # Build execution script
+    repo_spec = (repository or {}).get("spec") or {}
+    repo_url: str = repo_spec.get("url", "")
+    repo_revision: str | None = repo_spec.get("revision")
+    repo_branch: str = repo_spec.get("branch") or "main"
+    repo_paths = repo_spec.get("paths") or {}
+    requirements_file = repo_paths.get("requirementsFile") or "requirements.yml"
+    playbook_path: str = spec.get("playbookPath") or ""
+    inventory_path: str | None = spec.get("inventoryPath")
+    inventory_paths: list[str] = spec.get("inventoryPaths") or []
+    ansible_cfg_path: str | None = spec.get("ansibleCfgPath")
+
+    ssh_cfg = repo_spec.get("ssh") or {}
+    ssh_known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
+    strict_host_key = ssh_cfg.get("strictHostKeyChecking", True)
+
+    auth = repo_spec.get("auth") or {}
+    auth_method: str | None = auth.get("method")
+    auth_secret_name: str | None = (auth.get("secretRef") or {}).get("name")
+
+    # Add volumes for workspace and home dir to support readOnlyRootFilesystem
+    volumes.append({"name": "workspace", "emptyDir": {}})
+    volume_mounts.append({"name": "workspace", "mountPath": "/workspace"})
+    volumes.append({"name": "home", "emptyDir": {}})
+    volume_mounts.append({"name": "home", "mountPath": "/home/ansible"})
+
+    # Mount SSH secret and known_hosts when using ssh
+    if auth_method == "ssh" and auth_secret_name:
+        volumes.append({"name": "ssh-auth", "secret": {"secretName": auth_secret_name}})
+        volume_mounts.append({"name": "ssh-auth", "mountPath": "/ssh-auth", "readOnly": True})
+    if ssh_known_hosts_cm:
+        volumes.append({"name": "ssh-known", "configMap": {"name": ssh_known_hosts_cm}})
+        volume_mounts.append(
+            {"name": "ssh-known", "mountPath": "/ssh-knownhosts", "readOnly": True}
+        )
+
+    # Token-based auth env var
+    if auth_method == "token" and auth_secret_name:
+        env_list.append(
+            {
+                "name": "REPO_TOKEN",
+                "valueFrom": {"secretKeyRef": {"name": auth_secret_name, "key": "token"}},
+            }
+        )
+
+    # Build inventory flags
+    inventory_flags: list[str] = []
+    if inventory_path:
+        inventory_flags.extend(["-i", inventory_path])
+    for ipath in inventory_paths:
+        inventory_flags.extend(["-i", ipath])
+
+    extra_env_exports: list[str] = []
+    if ansible_cfg_path:
+        extra_env_exports.append(f'export ANSIBLE_CONFIG="{ansible_cfg_path}"')
+
+    # Build git auth setup
+    git_auth_setup: list[str] = ["mkdir -p $HOME/.ssh"]
+    if auth_method == "ssh":
+        git_auth_setup.append("install -m 0600 /ssh-auth/ssh-privatekey $HOME/.ssh/id_rsa")
+        if strict_host_key and ssh_known_hosts_cm:
+            git_auth_setup.append(
+                'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa \
+                    -o UserKnownHostsFile=/ssh-knownhosts/known_hosts \
+                    -o StrictHostKeyChecking=yes"'
+            )
+        elif strict_host_key and not ssh_known_hosts_cm:
+            # Enforce pinning: fail fast if strict enabled but no known hosts provided
+            git_auth_setup.append(
+                "echo 'known_hosts not provided while strictHostKeyChecking=true' >&2; exit 1"
+            )
+        else:
+            git_auth_setup.append(
+                'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa -o StrictHostKeyChecking=no"'
+            )
+    elif auth_method == "token":
+        # Minimal GitHub token support via netrc, avoiding logging the token
+        git_auth_setup.extend(
+            [
+                "GIT_HOST=github.com",
+                "if echo \"{repo_url}\" | grep -q 'github.com'; then GIT_HOST=github.com; fi",
+                "umask 077",
+                'printf \'machine %s login oauth2 password %s\n\' "$GIT_HOST" "$REPO_TOKEN" \
+                    > $HOME/.netrc',
+            ]
+        )
+
+    # Build clone and checkout
+    clone_dir = "/workspace/repo"
+    clone_and_checkout: list[str] = [
+        f'git clone "{repo_url}" {clone_dir}',
+        f"cd {clone_dir}",
+    ]
+    if repo_revision:
+        clone_and_checkout.append(f'git checkout --detach "{repo_revision}"')
+    else:
+        clone_and_checkout.append(f'git checkout "{repo_branch}"')
+
+    # Install galaxy requirements if present
+    clone_and_checkout.append(
+        f"if [ -f {requirements_file} ]; then ansible-galaxy install -r {requirements_file}; fi"
+    )
+
+    # Build ansible-playbook command
+    extra_vars_flags: list[str] = []
+    extra_vars = spec.get("extraVars") or {}
+    if extra_vars:
+        # Inline JSON; avoid secrets in logs by not echoing
+        import json
+
+        extra_vars_json = json.dumps(extra_vars)
+        extra_vars_flags = ["--extra-vars", extra_vars_json]
+
+    ansible_cmd_parts: list[str] = [
+        "ansible-playbook",
+        playbook_path,
+        *inventory_flags,
+        *extra_vars_flags,
+    ]
+
+    script_lines: list[str] = [
+        "set -euo pipefail",
+        "export HOME=/home/ansible",
+        *extra_env_exports,
+        *git_auth_setup,
+        *clone_and_checkout,
+        "cd /workspace/repo",
+        " ".join(ansible_cmd_parts),
+    ]
 
     manifest: dict[str, Any] = {
         "apiVersion": "batch/v1",
@@ -79,6 +241,11 @@ def build_cronjob(
             "schedule": computed_schedule,
             "concurrencyPolicy": concurrency_policy or "Forbid",
             **(
+                {"suspend": bool(schedule_spec.get("suspend"))}
+                if "suspend" in schedule_spec
+                else {}
+            ),
+            **(
                 {"startingDeadlineSeconds": starting_deadline}
                 if starting_deadline is not None
                 else {}
@@ -88,10 +255,20 @@ def build_cronjob(
             "jobTemplate": {
                 "spec": {
                     **({"backoffLimit": backoff_limit} if backoff_limit is not None else {}),
+                    **(
+                        {"activeDeadlineSeconds": active_deadline_seconds}
+                        if active_deadline_seconds is not None
+                        else {}
+                    ),
                     "template": {
                         "spec": {
                             "restartPolicy": "Never",
                             "securityContext": pod_security_context,
+                            **(
+                                {"serviceAccountName": service_account_name}
+                                if service_account_name
+                                else {}
+                            ),
                             **(
                                 {"imagePullSecrets": runtime.get("imagePullSecrets")}
                                 if runtime.get("imagePullSecrets")
@@ -112,22 +289,21 @@ def build_cronjob(
                                 if runtime.get("affinity")
                                 else {}
                             ),
+                            **({"volumes": volumes} if volumes else {}),
                             "containers": [
                                 {
                                     "name": "ansible-runner",
                                     "image": image,
                                     **({"resources": resources} if resources else {}),
                                     "securityContext": container_security_context,
-                                    # Command and env will be generated in later phases
+                                    **({"env": env_list} if env_list else {}),
+                                    **({"envFrom": env_from_list} if env_from_list else {}),
+                                    **({"volumeMounts": volume_mounts} if volume_mounts else {}),
                                     "command": ["/bin/bash", "-c"],
-                                    "args": [
-                                        (
-                                            "echo 'ansible-playbook execution to be' "
-                                            " 'implemented' && exit 0"
-                                        )
-                                    ],
+                                    "args": ["\n".join(script_lines)],
                                 }
                             ],
+                            **({"volumes": volumes} if volumes else {}),
                         }
                     },
                 }
