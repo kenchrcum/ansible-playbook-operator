@@ -1,6 +1,6 @@
 operator:
   image:
-    repository: ghcr.io/cloud37/ansible-playbook-operator
+    repository: kenchrcum/ansible-playbook-operator
     tag: "0.1.0"
     pullPolicy: IfNotPresent
   resources:
@@ -15,7 +15,9 @@ operator:
     # one of: namespace|all
     scope: namespace
   metrics:
-    enabled: true
+    enabled: false
+    serviceMonitor:
+      enabled: true
   serviceAccount:
     create: true
     name: ""
