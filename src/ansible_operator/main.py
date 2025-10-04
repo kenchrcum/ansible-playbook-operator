@@ -13,9 +13,15 @@ from .utils.schedule import compute_computed_schedule
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
     # Prefer SSA, set reasonable timeouts and workers
-    settings.persistence.progress_storage = kopf.AnnotationsProgressStorage(
-        prefix=f"{API_GROUP}/progress"
-    )
+    # Avoid annotation writes by using status-backed progress/diff bases where supported.
+    # Fallback to smart storages which adapt to cluster capabilities.
+    try:
+        settings.persistence.progress_storage = kopf.StatusProgressStorage()
+        settings.persistence.diffbase_storage = kopf.StatusDiffBaseStorage(
+            field="status.kopf.diffbase"
+        )
+    except Exception:
+        settings.persistence.progress_storage = kopf.SmartProgressStorage()
     settings.posting.level = 0  # default
     settings.networking.request_timeout = 30.0
     settings.execution.max_workers = 4
@@ -173,7 +179,6 @@ def reconcile_schedule(
 
     # Apply via Server-Side Apply
     batch_api = client.BatchV1Api()
-    field_manager = "ansible-operator"
     try:
         # Try to read existing CronJob
         batch_api.read_namespaced_cron_job(name=name, namespace=namespace)
@@ -182,14 +187,13 @@ def reconcile_schedule(
             name=name,
             namespace=namespace,
             body=cj_manifest,
-            field_manager=field_manager,
-            force=True,
         )
         logger.info(f"Patched CronJob schedule/{name}")
     except client.exceptions.ApiException as e:
         if e.status == 404:
             batch_api.create_namespaced_cron_job(
-                namespace=namespace, body=cj_manifest, field_manager=field_manager
+                namespace=namespace,
+                body=cj_manifest,
             )
             logger.info(f"Created CronJob schedule/{name}")
         else:

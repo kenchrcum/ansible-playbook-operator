@@ -46,9 +46,9 @@ spec:
               type: object
               required: [url]
               x-kubernetes-validations:
-                - rule: "self.auth == null || self.auth.method == null || has(self.auth.secretRef)"
+                - rule: "!has(self.auth) || !has(self.auth.method) || has(self.auth.secretRef)"
                   message: auth.secretRef must be set when auth.method is provided
-                - rule: "self.cache == null || self.cache.strategy != 'pvc' || (has(self.cache.pvcName) && size(self.cache.pvcName) > 0)"
+                - rule: "!has(self.cache) || self.cache.strategy != 'pvc' || (has(self.cache.pvcName) && size(self.cache.pvcName) > 0)"
                   message: cache.pvcName is required when cache.strategy is pvc
               properties:
                 url:

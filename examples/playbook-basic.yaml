@@ -22,10 +22,3 @@ spec:
             path: id_rsa
   runtime:
     image: kenchrcum/ansible-runner:12
-    resources:
-      requests:
-        cpu: 250m
-        memory: 256Mi
-      limits:
-        cpu: 500m
-        memory: 512Mi

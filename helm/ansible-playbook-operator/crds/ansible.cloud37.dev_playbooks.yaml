@@ -150,11 +150,7 @@ spec:
                             type: string
                     resources:
                       type: object
-                      properties:
-                        limits:
-                          type: object
-                        requests:
-                          type: object
+                      additionalProperties: true
                     nodeSelector:
                       type: object
                       additionalProperties:

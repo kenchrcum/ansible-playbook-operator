@@ -8,6 +8,8 @@ metadata:
     app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: ansible-playbook-operator
@@ -21,20 +23,29 @@ spec:
       serviceAccountName: {{ include "ansible-playbook-operator.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
         - name: operator
           image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
           imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
+          command: ["/bin/sh", "-c"]
           args:
-            - "-m"
-            - "ansible_operator.main"
-            - "operator"
+            - >-
+              exec kopf run --standalone
+              {{- if eq .Values.operator.watch.scope "all" }} --all-namespaces{{- else }} --namespace {{ .Release.Namespace }}{{- end }}
+              -m ansible_operator.main
           env:
             - name: PYTHONUNBUFFERED
               value: "1"
+            - name: USER
+              value: "ansible"
             - name: KOPF_LEADER_ELECTION
               value: {{ ternary "true" "false" .Values.operator.leaderElection | quote }}
             - name: WATCH_SCOPE
               value: {{ .Values.operator.watch.scope | quote }}
+          ports:
+            - name: http-metrics
+              containerPort: 8080
           resources:
             {{- toYaml .Values.operator.resources | nindent 12 }}

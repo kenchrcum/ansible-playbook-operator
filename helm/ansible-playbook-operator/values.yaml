@@ -28,5 +28,6 @@ executorDefaults:
 
 rbac:
   preset: minimal  # minimal|scoped|cluster-admin
+  clusterRead: true  # allow listing CRDs and Namespaces for Kopf preflight
 
 # CRDs will be delivered under crds/ in the chart (added later)
