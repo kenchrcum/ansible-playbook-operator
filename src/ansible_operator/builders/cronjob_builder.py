@@ -4,6 +4,7 @@ from typing import Any
 
 from ..constants import (
     API_GROUP,
+    ANNOTATION_OWNER_UID,
     LABEL_MANAGED_BY,
     LABEL_OWNER_KIND,
     LABEL_OWNER_NAME,
@@ -328,6 +329,9 @@ def build_cronjob(
                 LABEL_OWNER_KIND: "Schedule",
                 LABEL_OWNER_NAME: f"{namespace}.{schedule_name}",
                 LABEL_OWNER_UID: owner_uid,
+            },
+            "annotations": {
+                ANNOTATION_OWNER_UID: owner_uid,
             },
             "ownerReferences": [
                 {

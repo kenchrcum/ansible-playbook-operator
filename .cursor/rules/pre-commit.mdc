@@ -8,7 +8,7 @@ globs: "**/*"
 Always run `pre-commit` checks locally before committing changes to ensure the repo stays committable and CI passes.
 
 ## Running Tests
-Always run tests using the virtual environment:
+Always run tests using the virtual environment, files need to be staged before running pre-commit test:
 ```bash
 git add .
 source .venv/bin/activate

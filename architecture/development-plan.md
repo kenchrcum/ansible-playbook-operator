@@ -178,7 +178,8 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 - `ansible.cloud37.dev/managed-by: ansible-operator`
 - `ansible.cloud37.dev/owner-kind: Schedule`
 - `ansible.cloud37.dev/owner-name: <ns.name>`
-- `ansible.cloud37.dev/owner-uid: <metadata.uid>`
+- `ansible.cloud37.dev/owner-uid: <metadata.uid>` (label)
+- `ansible.cloud37.dev/owner-uid: <metadata.uid>` (annotation for adoption safety)
 - `ansible.cloud37.dev/revision: <repo.resolvedRevision or play run commit>` (on Jobs)
 - `ansible.cloud37.dev/run-id: <uuid>` (on Jobs)
 
@@ -191,7 +192,11 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 
 #### 3.9 Drift detection and SSA strategy
 - Use SSA diff to detect drift only within operator-owned fields; do not overwrite user-managed fields.
-- If a resource is found without owner labels but matches signature, adopt only when safe (matching UID in annotations) to avoid hijacking.
+- Safe CronJob adoption logic:
+  - If CronJob is already managed by ansible-operator: check owner UID (label or annotation) matches
+  - If CronJob has owner references: check Schedule owner reference matches
+  - If CronJob has UID annotation: check annotation matches Schedule UID (manual adoption)
+  - Otherwise: emit warning and skip adoption to avoid hijacking
 - Never force-apply unless recovering from a previous operator field manager; prefer granular patches.
 
 #### 3.10 Requeues and backoff

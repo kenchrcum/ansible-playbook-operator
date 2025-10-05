@@ -12,11 +12,59 @@ from . import logging as structured_logging
 from . import metrics
 from .builders.cronjob_builder import build_cronjob
 from .builders.job_builder import build_connectivity_probe_job
-from .constants import API_GROUP, API_GROUP_VERSION, COND_READY
+from .constants import (
+    API_GROUP,
+    API_GROUP_VERSION,
+    ANNOTATION_OWNER_UID,
+    COND_AUTH_VALID,
+    COND_CLONE_READY,
+    COND_READY,
+    FINALIZER,
+    LABEL_MANAGED_BY,
+    LABEL_OWNER_KIND,
+    LABEL_OWNER_NAME,
+    LABEL_OWNER_UID,
+)
 from .services.git import GitService
 from .utils.schedule import compute_computed_schedule
 
 FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
+
+
+def _can_safely_adopt_cronjob(
+    existing_cj: Any, owner_uid: str, owner_name: str, namespace: str
+) -> tuple[bool, str]:
+    """Check if an existing CronJob can be safely adopted by this Schedule.
+
+    Returns:
+        Tuple of (can_adopt: bool, reason: str)
+    """
+    metadata = existing_cj.metadata
+    labels = metadata.labels or {}
+    annotations = metadata.annotations or {}
+
+    # Check if already managed by ansible-operator
+    if labels.get(LABEL_MANAGED_BY) == "ansible-operator":
+        # Check if owner UID matches (via label or annotation)
+        existing_owner_uid = labels.get(LABEL_OWNER_UID) or annotations.get(ANNOTATION_OWNER_UID)
+        if existing_owner_uid == owner_uid:
+            return True, "matching owner UID"
+        else:
+            return False, f"different owner UID: existing={existing_owner_uid}, current={owner_uid}"
+
+    # Check if owner references match
+    owner_refs = metadata.owner_references or []
+    for ref in owner_refs:
+        if ref.kind == "Schedule" and ref.name == owner_name and ref.uid == owner_uid:
+            return True, "matching owner reference"
+
+    # Check if UID annotation matches (for manual adoption)
+    existing_uid_annotation = annotations.get(ANNOTATION_OWNER_UID)
+    if existing_uid_annotation == owner_uid:
+        return True, "matching UID annotation"
+
+    # Not safe to adopt
+    return False, "no matching ownership indicators (labels, owner references, or UID annotation)"
 
 
 @kopf.on.startup()
@@ -787,6 +835,8 @@ def reconcile_schedule(
 
         # Apply via Server-Side Apply (SSA) with our field manager — create or patch.
         batch_api = client.BatchV1Api()
+        cronjob_name = cj_manifest["metadata"]["name"]
+
         try:
             # Try to create first (SSA apply)
             batch_api.create_namespaced_cron_job(
@@ -794,33 +844,121 @@ def reconcile_schedule(
                 body=cj_manifest,
                 field_manager="ansible-operator",
             )
+            structured_logging.logger.info(
+                "CronJob created via SSA",
+                controller="Schedule",
+                resource=f"{namespace}/{name}",
+                uid=uid,
+                event="reconcile",
+                reason="CronJobCreated",
+                cronjob_name=cronjob_name,
+            )
+            _emit_event(
+                kind="Schedule",
+                namespace=namespace,
+                name=name,
+                reason="CronJobCreated",
+                message=f"CronJob '{cronjob_name}' created via SSA",
+            )
         except client.exceptions.ApiException as e:
             if e.status == 409:
-                # Already exists; patch with SSA apply
-                batch_api.patch_namespaced_cron_job(
-                    name=name,
-                    namespace=namespace,
-                    body=cj_manifest,
-                    field_manager="ansible-operator",
-                )
+                # Already exists; check if we can safely adopt it
+                try:
+                    existing_cj = batch_api.read_namespaced_cron_job(
+                        name=cronjob_name,
+                        namespace=namespace,
+                    )
+
+                    # Check adoption safety
+                    can_adopt, adoption_reason = _can_safely_adopt_cronjob(
+                        existing_cj, uid, name, namespace
+                    )
+
+                    if can_adopt:
+                        # Safe to adopt; patch with SSA apply
+                        batch_api.patch_namespaced_cron_job(
+                            name=cronjob_name,
+                            namespace=namespace,
+                            body=cj_manifest,
+                            field_manager="ansible-operator",
+                        )
+                        structured_logging.logger.info(
+                            "CronJob adopted and patched via SSA",
+                            controller="Schedule",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="reconcile",
+                            reason="CronJobAdopted",
+                            cronjob_name=cronjob_name,
+                            adoption_reason=adoption_reason,
+                        )
+                        _emit_event(
+                            kind="Schedule",
+                            namespace=namespace,
+                            name=name,
+                            reason="CronJobAdopted",
+                            message=f"CronJob '{cronjob_name}' adopted and patched via SSA",
+                        )
+                    else:
+                        # Cannot safely adopt; emit warning and skip
+                        structured_logging.logger.warning(
+                            "Cannot safely adopt existing CronJob",
+                            controller="Schedule",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="reconcile",
+                            reason="CronJobAdoptionSkipped",
+                            cronjob_name=cronjob_name,
+                            adoption_reason=adoption_reason,
+                        )
+                        _emit_event(
+                            kind="Schedule",
+                            namespace=namespace,
+                            name=name,
+                            reason="CronJobAdoptionSkipped",
+                            message=f"Cannot safely adopt CronJob '{cronjob_name}': {adoption_reason}",
+                            type_="Warning",
+                        )
+                        _update_condition(
+                            patch.status,
+                            COND_READY,
+                            "False",
+                            "AdoptionSkipped",
+                            f"Cannot safely adopt existing CronJob: {adoption_reason}",
+                        )
+                        return
+
+                except client.exceptions.ApiException as read_e:
+                    if read_e.status == 404:
+                        # CronJob disappeared between create attempt and read
+                        # Try to create again
+                        batch_api.create_namespaced_cron_job(
+                            namespace=namespace,
+                            body=cj_manifest,
+                            field_manager="ansible-operator",
+                        )
+                        structured_logging.logger.info(
+                            "CronJob created via SSA (retry after 404)",
+                            controller="Schedule",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="reconcile",
+                            reason="CronJobCreated",
+                            cronjob_name=cronjob_name,
+                        )
+                        _emit_event(
+                            kind="Schedule",
+                            namespace=namespace,
+                            name=name,
+                            reason="CronJobCreated",
+                            message=f"CronJob '{cronjob_name}' created via SSA (retry)",
+                        )
+                    else:
+                        raise
             else:
                 raise
 
-        structured_logging.logger.info(
-            "CronJob applied via SSA",
-            controller="Schedule",
-            resource=f"{namespace}/{name}",
-            uid=uid,
-            event="reconcile",
-            reason="CronJobApplied",
-        )
-        _emit_event(
-            kind="Schedule",
-            namespace=namespace,
-            name=name,
-            reason="CronJobApplied",
-            message="CronJob applied via SSA",
-        )
+        # Logging and events are handled in the try/except blocks above
 
         _update_condition(patch.status, COND_READY, "True", "Applied", "CronJob applied with SSA")
         structured_logging.logger.info(
