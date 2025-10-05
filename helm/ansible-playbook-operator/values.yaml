@@ -27,6 +27,18 @@ executorDefaults:
     repository: kenchrcum/ansible-runner
     tag: latest
     pullPolicy: IfNotPresent
+  cache:
+    # Default cache strategy for repositories that don't specify one
+    # Options: none, pvc
+    strategy: none
+    # Default PVC name when strategy is pvc
+    pvcName: ""
+    # Whether to create a PVC for caching (optional)
+    createPVC: false
+    # Storage size for the cache PVC when createPVC is true
+    storageSize: "10Gi"
+    # Storage class name for the cache PVC (optional)
+    storageClassName: ""
 
 rbac:
   # RBAC permission preset: minimal (default), scoped, or cluster-admin

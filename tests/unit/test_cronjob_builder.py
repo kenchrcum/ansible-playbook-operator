@@ -192,3 +192,111 @@ def test_cronjob_builder_ansible_cfg_relative_path():
     container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
     args = container["args"][0]
     assert 'export ANSIBLE_CONFIG="/workspace/repo/my-ansible.cfg"' in args
+
+
+def test_cronjob_builder_cache_pvc_strategy():
+    """Test PVC-backed cache volume is mounted when Repository.spec.cache.strategy is 'pvc'."""
+    playbook = {"spec": {"playbookPath": "playbook.yml"}}
+    repository = {"spec": {"cache": {"strategy": "pvc", "pvcName": "my-cache-pvc"}}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        repository=repository,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify cache volume is added
+    volumes = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"]
+    cache_volume = next((v for v in volumes if v["name"] == "ansible-cache"), None)
+    assert cache_volume is not None
+    assert cache_volume["persistentVolumeClaim"]["claimName"] == "my-cache-pvc"
+
+    # Verify cache volume mount
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    volume_mounts = container["volumeMounts"]
+    cache_mount = next((vm for vm in volume_mounts if vm["name"] == "ansible-cache"), None)
+    assert cache_mount is not None
+    assert cache_mount["mountPath"] == "/home/ansible/.ansible"
+
+
+def test_cronjob_builder_cache_none_strategy():
+    """Test no cache volume is mounted when Repository.spec.cache.strategy is 'none'."""
+    playbook = {"spec": {"playbookPath": "playbook.yml"}}
+    repository = {"spec": {"cache": {"strategy": "none"}}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        repository=repository,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify no cache volume
+    volumes = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"]
+    cache_volume = next((v for v in volumes if v["name"] == "ansible-cache"), None)
+    assert cache_volume is None
+
+    # Verify no cache volume mount
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    volume_mounts = container.get("volumeMounts", [])
+    cache_mount = next((vm for vm in volume_mounts if vm["name"] == "ansible-cache"), None)
+    assert cache_mount is None
+
+
+def test_cronjob_builder_cache_pvc_strategy_empty_pvc_name():
+    """Test no cache volume is mounted when PVC strategy is used but pvcName is empty."""
+    playbook = {"spec": {"playbookPath": "playbook.yml"}}
+    repository = {"spec": {"cache": {"strategy": "pvc", "pvcName": ""}}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        repository=repository,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify no cache volume (because pvcName is empty)
+    volumes = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"]
+    cache_volume = next((v for v in volumes if v["name"] == "ansible-cache"), None)
+    assert cache_volume is None
+
+    # Verify no cache volume mount
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    volume_mounts = container.get("volumeMounts", [])
+    cache_mount = next((vm for vm in volume_mounts if vm["name"] == "ansible-cache"), None)
+    assert cache_mount is None
+
+
+def test_cronjob_builder_no_repository_cache():
+    """Test no cache volume is mounted when no repository is provided."""
+    playbook = {"spec": {"playbookPath": "playbook.yml"}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify no cache volume
+    volumes = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"]
+    cache_volume = next((v for v in volumes if v["name"] == "ansible-cache"), None)
+    assert cache_volume is None
+
+    # Verify no cache volume mount
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    volume_mounts = container.get("volumeMounts", [])
+    cache_mount = next((vm for vm in volume_mounts if vm["name"] == "ansible-cache"), None)
+    assert cache_mount is None

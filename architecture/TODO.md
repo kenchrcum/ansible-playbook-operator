@@ -19,7 +19,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [ ] Vars: merge `extraVarsSecretRefs` with `extraVars` without logging secret values; ensure deterministic precedence and redaction in logs.
 - [x] Ansible config: support in-repo `ansible.cfg` (relative paths should resolve under `/workspace/repo`), and environment `ANSIBLE_CONFIG` when `spec.ansibleCfgPath` is set.
 - [ ] Git: add options for `submodules`, `lfs`, and shallow clone; respect `Repository.spec.git.*`.
-- [ ] Caching: optional PVC-backed cache for `~/.ansible` collections/roles per `Repository.spec.cache` and chart values.
+- [x] Caching: optional PVC-backed cache for `~/.ansible` collections/roles per `Repository.spec.cache` and chart values.
 - [ ] Traceability: label Jobs with `ansible.cloud37.dev/run-id` and resolved `ansible.cloud37.dev/revision`; annotate rendered command sans secrets.
 - [ ] Security defaults: ensure container security merges defaults rather than being entirely replaced; enforce `readOnlyRootFilesystem`, `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, drop all caps unless explicitly overridden with justification.
 - [ ] CLI options: extend to support tags, check mode, timeout, and common `ansible-playbook` toggles via `Playbook.spec` (future-compatible design).

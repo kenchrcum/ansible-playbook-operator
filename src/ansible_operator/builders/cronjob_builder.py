@@ -83,6 +83,16 @@ def build_cronjob(
     service_account_name = runtime.get("serviceAccountName")
     active_deadline_seconds = runtime.get("activeDeadlineSeconds")
 
+    # Add PVC-backed cache for ~/.ansible when configured
+    repo_cache = (repository or {}).get("spec", {}).get("cache") or {}
+    if repo_cache.get("strategy") == "pvc":
+        pvc_name = repo_cache.get("pvcName")
+        if pvc_name:
+            volumes.append(
+                {"name": "ansible-cache", "persistentVolumeClaim": {"claimName": pvc_name}}
+            )
+            volume_mounts.append({"name": "ansible-cache", "mountPath": "/home/ansible/.ansible"})
+
     cronjob_name = f"{schedule_name}"
     owner_name = owner_name or schedule_name
 
