@@ -8,6 +8,7 @@ description: "Defines the project structure for the Ansible Playbook Operator."
   - `controllers/`: Kubernetes controller logic.
   - `services/git/`: Git service.
   - `services/ansible/`: Ansible service.
+  - `builders/`: Job and CronJob manifest builders with Ansible execution support.
   - `k8s/resources/`: Kubernetes resource definitions.
 - `schemas/` for CRDs and JSON schemas. These are not templated in Helm.
 - `helm/` for the Helm chart.

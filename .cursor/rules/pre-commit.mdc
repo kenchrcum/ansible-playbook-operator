@@ -29,6 +29,7 @@ pre-commit run --all-files
 - Type annotations: add proper type hints for variables, avoid `Any` in favor of specific types.
 - Simplifications (SIM105): prefer `contextlib.suppress(Exception)` over `try/except/pass`.
 - Mypy: remove unused `# type: ignore`, add precise typing, avoid `Any` in public APIs.
+- YAML linting: `examples/` directory contains multi-document Kubernetes manifests and is excluded from YAML validation.
 
 ## Commit Gate
 - Do not commit if `pre-commit` is failing. Fix locally first, then commit.

@@ -24,6 +24,12 @@ description: "Guidelines for working with Kubernetes resources and Helm charts."
 - Provide example values for RBAC presets, multi-namespace watch, and cache configuration.
 - Include optional PVC templates for executor caching when `executorDefaults.cache.createPVC` is enabled.
 
+## CRD Schema Validation
+- CRD schemas must not define `metadata` properties beyond `name` and `generateName`
+- Kubernetes implicitly handles metadata fields; defining them causes validation errors
+- Use `kubectl apply --dry-run=client` to validate CRD schemas before committing
+- Examples in `examples/` directory contain multi-document YAML and should be excluded from YAML linting
+
 ## RBAC Preset Implementation
 - Implement RBAC presets using conditional Helm templating (`{{- if eq .Values.rbac.preset "preset-name" }}`)
 - Structure presets with progressive permissions: `minimal` (default, least-privilege) → `scoped` (cross-namespace) → `cluster-admin` (full access)

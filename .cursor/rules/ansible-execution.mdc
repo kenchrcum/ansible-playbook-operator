@@ -1,0 +1,70 @@
+---
+globs: "**/*.py,helm/**/*.yaml,examples/**/*.yaml"
+description: "Guidelines for Ansible execution capabilities and CLI options in the operator."
+---
+# Ansible Execution Capabilities
+
+## Playbook CRD Execution Options
+
+The Playbook CRD supports comprehensive Ansible execution options via `spec.execution`:
+
+### Task Filtering
+- `tags`: Array of tags to run (`--tags`)
+- `skipTags`: Array of tags to skip (`--skip-tags`)
+
+### Execution Modes
+- `checkMode`: Boolean for dry-run mode (`--check`)
+- `diff`: Boolean to show file differences (`--diff`)
+- `step`: Boolean for step-by-step execution (`--step`)
+
+### Output Control
+- `verbosity`: Integer (0-4) for output verbosity (`-v`, `-vv`, `-vvv`, `-vvvv`)
+
+### Host Targeting
+- `limit`: String to limit execution to specific hosts (`--limit`)
+
+### Performance Tuning
+- `connectionTimeout`: Integer for connection timeout in seconds (`--timeout`)
+- `forks`: Integer for parallel processes (`--forks`)
+- `strategy`: String for execution strategy (`linear` or `free`, `--strategy`)
+
+### Advanced Options
+- `flushCache`: Boolean to clear fact cache (`--flush-cache`)
+- `forceHandlers`: Boolean to run handlers on failure (`--force-handlers`)
+- `startAtTask`: String to start at specific task (`--start-at-task`)
+
+## Implementation Details
+
+### CronJob Builder
+- Execution options are processed in [src/ansible_operator/builders/cronjob_builder.py](mdc:src/ansible_operator/builders/cronjob_builder.py)
+- All options are mapped to corresponding `ansible-playbook` CLI flags
+- Default values are handled appropriately (e.g., `linear` strategy is default and not added as flag)
+- Verbosity is capped at 4 levels maximum
+
+### Testing
+- Unit tests in [tests/unit/test_cronjob_builder.py](mdc:tests/unit/test_cronjob_builder.py) cover:
+  - Individual execution options
+  - Multiple options in combination
+  - Default values and empty configurations
+  - Edge cases (verbosity capping, strategy defaults)
+
+### Examples
+- [examples/playbook-execution-options.yaml](mdc:examples/playbook-execution-options.yaml): Comprehensive example with all options
+- [examples/playbook-check-mode.yaml](mdc:examples/playbook-check-mode.yaml): Focused example for validation and check mode
+
+## Existing Capabilities
+
+The operator already supports:
+- Variables: `extraVars`, `extraVarsSecretRefs`
+- Vault: `vaultPasswordSecretRef`
+- Multiple inventories: `inventoryPath`, `inventoryPaths`
+- Ansible config: `ansibleCfgPath`
+- Timeouts: `activeDeadlineSeconds` (runtime level)
+
+## Best Practices
+
+- Use `checkMode: true` for validation runs
+- Combine `tags` and `skipTags` for precise task control
+- Set appropriate `connectionTimeout` for network reliability
+- Use `verbosity: 2` for debugging, `verbosity: 0` for production
+- Consider `strategy: free` for independent tasks when appropriate

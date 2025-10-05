@@ -24,3 +24,15 @@ description: "Guidelines for testing, documentation, and quality gates."
 - Reject changes that introduce secret leakage or reduce security defaults.
 - Repository CRD conditions: `AuthValid`, `CloneReady`, and derived `Ready` must be properly maintained.
 - Events must be emitted with concise reasons for `ValidateSucceeded`/`ValidateFailed`.
+
+## Ansible Execution Capabilities
+- Playbook CRD supports comprehensive execution options via `spec.execution`:
+  - `tags` and `skipTags` arrays for task filtering
+  - `checkMode`, `diff`, `step` booleans for execution modes
+  - `verbosity` (0-4) for output control
+  - `limit` for host targeting
+  - `connectionTimeout`, `forks`, `strategy` for performance tuning
+  - `flushCache`, `forceHandlers`, `startAtTask` for advanced options
+- All execution options are mapped to corresponding `ansible-playbook` CLI flags
+- Examples demonstrate usage patterns in [examples/playbook-execution-options.yaml](mdc:examples/playbook-execution-options.yaml) and [examples/playbook-check-mode.yaml](mdc:examples/playbook-check-mode.yaml)
+- Unit tests cover all execution options individually and in combination
