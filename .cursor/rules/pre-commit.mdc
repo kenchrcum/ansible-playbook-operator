@@ -10,6 +10,7 @@ Always run `pre-commit` checks locally before committing changes to ensure the r
 ## Running Tests
 Always run tests using the virtual environment:
 ```bash
+git add .
 source .venv/bin/activate
 pytest pre-commit run --all-files
 ```

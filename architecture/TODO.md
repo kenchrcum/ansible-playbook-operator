@@ -25,7 +25,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [ ] CLI options: extend to support tags, check mode, timeout, and common `ansible-playbook` toggles via `Playbook.spec` (future-compatible design).
 
 ### Observability
-- [ ] Logging: structured JSON logs with `controller`, `resource`, `uid`, `runId`, `event`, `reason`; never log secrets.
+- [x] Logging: structured JSON logs with `controller`, `resource`, `uid`, `runId`, `event`, `reason`; never log secrets.
 - [ ] Metrics: add workqueue depth, Job runs total and duration histograms; expose via existing metrics Service.
 - [ ] Events: standardize event reasons across lifecycle (ReconcileStarted/Failed, CronJobCreated/Patched/Adopted, JobCreated/Succeeded/Failed, CleanupSucceeded/Failed).
 

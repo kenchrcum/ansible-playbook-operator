@@ -8,6 +8,7 @@ import kopf
 from kubernetes import client, config
 from prometheus_client import start_http_server
 
+from . import logging as structured_logging
 from . import metrics
 from .builders.cronjob_builder import build_cronjob
 from .builders.job_builder import build_connectivity_probe_job
@@ -19,6 +20,9 @@ FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
 
 @kopf.on.startup()
 def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
+    # Set up structured JSON logging
+    structured_logging.setup_structured_logging()
+
     # Prefer SSA, set reasonable timeouts and workers
     # Use annotation-based diffbase storage to avoid conflicts with status.kopf field management.
     # Fallback to smart storages which adapt to cluster capabilities.
@@ -101,6 +105,14 @@ def reconcile_repository(
 ) -> None:
     started_at = monotonic()
     try:
+        structured_logging.logger.info(
+            "Starting repository reconciliation",
+            controller="Repository",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileStarted",
+        )
         # Handle finalizers
         if meta.get("deletionTimestamp"):
             # Repository is being deleted
@@ -242,8 +254,24 @@ def reconcile_repository(
             patch.status, COND_READY, "Unknown", "Deferred", "Repository connectivity being probed"
         )
 
+        structured_logging.logger.info(
+            "Repository reconciliation completed successfully",
+            controller="Repository",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileSucceeded",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="success").inc()
-    except Exception:
+    except Exception as e:
+        structured_logging.logger.error(
+            f"Repository reconciliation failed: {str(e)}",
+            controller="Repository",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileFailed",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="error").inc()
         raise
     finally:
@@ -301,6 +329,14 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
     patch_body: dict[str, Any] = {"status": {}}
 
     if succeeded > 0:
+        structured_logging.logger.info(
+            "Repository connectivity probe succeeded",
+            controller="Repository",
+            resource=f"{namespace}/{repository_name}",
+            uid=owner_ref.get("uid"),
+            event="job",
+            reason="ProbeSucceeded",
+        )
         _update_condition(
             patch_body["status"],
             "AuthValid",
@@ -326,6 +362,14 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
             message="Repository connectivity and clone capability verified",
         )
     elif failed > 0:
+        structured_logging.logger.warning(
+            "Repository connectivity probe failed",
+            controller="Repository",
+            resource=f"{namespace}/{repository_name}",
+            uid=owner_ref.get("uid"),
+            event="job",
+            reason="ProbeFailed",
+        )
         _update_condition(
             patch_body["status"], "AuthValid", "False", "ProbeFailed", "Connectivity probe failed"
         )
@@ -375,10 +419,19 @@ def reconcile_playbook(
     patch: kopf.Patch,
     name: str,
     namespace: str,
+    uid: str,
     **_: Any,
 ) -> None:
     started_at = monotonic()
     try:
+        structured_logging.logger.info(
+            "Starting playbook reconciliation",
+            controller="Playbook",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileStarted",
+        )
         repo_ref = (spec or {}).get("repositoryRef") or {}
         if not repo_ref.get("name"):
             _update_condition(
@@ -409,8 +462,25 @@ def reconcile_playbook(
             reason="ValidateSucceeded",
             message="Playbook spec minimally validated",
         )
+
+        structured_logging.logger.info(
+            "Playbook reconciliation completed successfully",
+            controller="Playbook",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileSucceeded",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Playbook", result="success").inc()
-    except Exception:
+    except Exception as e:
+        structured_logging.logger.error(
+            f"Playbook reconciliation failed: {str(e)}",
+            controller="Playbook",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileFailed",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Playbook", result="error").inc()
         raise
     finally:
@@ -427,11 +497,18 @@ def reconcile_schedule(
     name: str,
     namespace: str,
     uid: str,
-    logger: kopf.Logger,
     **_: Any,
 ) -> None:
     started_at = monotonic()
     try:
+        structured_logging.logger.info(
+            "Starting schedule reconciliation",
+            controller="Schedule",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileStarted",
+        )
         # Compute computedSchedule from spec.schedule (supports random macros)
         schedule_expr = (spec or {}).get("schedule") or ""
         computed, used_macro = compute_computed_schedule(schedule_expr, uid)
@@ -542,7 +619,15 @@ def reconcile_schedule(
                 )
             else:
                 raise
-        logger.info(f"Applied CronJob via SSA schedule/{name}")
+
+        structured_logging.logger.info(
+            "CronJob applied via SSA",
+            controller="Schedule",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="CronJobApplied",
+        )
         _emit_event(
             kind="Schedule",
             namespace=namespace,
@@ -552,8 +637,24 @@ def reconcile_schedule(
         )
 
         _update_condition(patch.status, COND_READY, "True", "Applied", "CronJob applied with SSA")
+        structured_logging.logger.info(
+            "Schedule reconciliation completed successfully",
+            controller="Schedule",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileSucceeded",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Schedule", result="success").inc()
-    except Exception:
+    except Exception as e:
+        structured_logging.logger.error(
+            f"Schedule reconciliation failed: {str(e)}",
+            controller="Schedule",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="reconcile",
+            reason="ReconcileFailed",
+        )
         metrics.RECONCILE_TOTAL.labels(kind="Schedule", result="error").inc()
         raise
     finally:
