@@ -1,0 +1,68 @@
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Playbook
+metadata:
+  name: config-validation
+  namespace: default
+spec:
+  repositoryRef:
+    name: config-repo
+  playbookPath: validate/config.yml
+  inventoryPath: inventory/staging
+  execution:
+    # Run in check mode (dry-run)
+    checkMode: true
+    diff: true
+    verbosity: 3
+    # Only run validation tasks
+    tags:
+      - validate
+      - config
+    # Skip any cleanup tasks
+    skipTags:
+      - cleanup
+      - teardown
+    # Limit to specific hosts
+    limit: "staging_servers"
+    # Connection settings
+    connectionTimeout: 15
+    forks: 5
+  extraVars:
+    environment: "staging"
+    validation_mode: true
+  runtime:
+    image: "kenchrcum/ansible-runner:latest"
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+---
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Repository
+metadata:
+  name: config-repo
+  namespace: default
+spec:
+  url: "https://github.com/company/config-management.git"
+  branch: "main"
+  auth:
+    method: "token"
+    secretRef:
+      name: github-token
+---
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Schedule
+metadata:
+  name: config-validation-schedule
+  namespace: default
+spec:
+  playbookRef:
+    name: config-validation
+  schedule: "0 6 * * *"  # Daily at 6 AM
+  concurrencyPolicy: "Forbid"
+  backoffLimit: 1
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  ttlSecondsAfterFinished: 1800

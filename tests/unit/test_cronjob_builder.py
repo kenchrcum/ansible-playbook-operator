@@ -300,3 +300,469 @@ def test_cronjob_builder_no_repository_cache():
     volume_mounts = container.get("volumeMounts", [])
     cache_mount = next((vm for vm in volume_mounts if vm["name"] == "ansible-cache"), None)
     assert cache_mount is None
+
+
+def test_cronjob_builder_execution_tags():
+    """Test execution tags are added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"tags": ["deploy", "config"]},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--tags deploy,config" in args
+
+
+def test_cronjob_builder_execution_skip_tags():
+    """Test execution skip tags are added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"skipTags": ["test", "debug"]},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--skip-tags test,debug" in args
+
+
+def test_cronjob_builder_execution_check_mode():
+    """Test check mode flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"checkMode": True},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--check" in args
+
+
+def test_cronjob_builder_execution_diff():
+    """Test diff flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"diff": True},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--diff" in args
+
+
+def test_cronjob_builder_execution_verbosity():
+    """Test verbosity flags are added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"verbosity": 3},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "-vvv" in args
+
+
+def test_cronjob_builder_execution_verbosity_max():
+    """Test verbosity is capped at 4."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"verbosity": 10},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "-vvvv" in args
+
+
+def test_cronjob_builder_execution_limit():
+    """Test limit flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"limit": "web_servers"},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--limit web_servers" in args
+
+
+def test_cronjob_builder_execution_connection_timeout():
+    """Test connection timeout flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"connectionTimeout": 30},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--timeout 30" in args
+
+
+def test_cronjob_builder_execution_forks():
+    """Test forks flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"forks": 10},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--forks 10" in args
+
+
+def test_cronjob_builder_execution_strategy():
+    """Test strategy flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"strategy": "free"},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--strategy free" in args
+
+
+def test_cronjob_builder_execution_strategy_default():
+    """Test strategy flag is not added when using default linear strategy."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"strategy": "linear"},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--strategy" not in args
+
+
+def test_cronjob_builder_execution_flush_cache():
+    """Test flush cache flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"flushCache": True},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--flush-cache" in args
+
+
+def test_cronjob_builder_execution_force_handlers():
+    """Test force handlers flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"forceHandlers": True},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--force-handlers" in args
+
+
+def test_cronjob_builder_execution_start_at_task():
+    """Test start at task flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"startAtTask": "Install packages"},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--start-at-task Install packages" in args
+
+
+def test_cronjob_builder_execution_step():
+    """Test step flag is added to ansible-playbook command."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {"step": True},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "--step" in args
+
+
+def test_cronjob_builder_execution_multiple_options():
+    """Test multiple execution options are combined correctly."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {
+                "tags": ["deploy"],
+                "checkMode": True,
+                "verbosity": 2,
+                "limit": "web_servers",
+                "connectionTimeout": 60,
+                "forks": 5,
+                "strategy": "free",
+                "flushCache": True,
+                "forceHandlers": True,
+                "step": True,
+            },
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+
+    # Verify all flags are present
+    assert "--tags deploy" in args
+    assert "--check" in args
+    assert "-vv" in args
+    assert "--limit web_servers" in args
+    assert "--timeout 60" in args
+    assert "--forks 5" in args
+    assert "--strategy free" in args
+    assert "--flush-cache" in args
+    assert "--force-handlers" in args
+    assert "--step" in args
+
+
+def test_cronjob_builder_execution_empty():
+    """Test no execution flags are added when execution is empty."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {},
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+
+    # Verify no execution flags are present
+    assert "--tags" not in args
+    assert "--skip-tags" not in args
+    assert "--check" not in args
+    assert "--diff" not in args
+    assert "-v" not in args
+    assert "--limit" not in args
+    assert "--timeout" not in args
+    assert "--forks" not in args
+    assert "--strategy" not in args
+    assert "--flush-cache" not in args
+    assert "--force-handlers" not in args
+    assert "--start-at-task" not in args
+    assert "--step" not in args
+
+
+def test_cronjob_builder_execution_defaults():
+    """Test execution defaults are applied correctly."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "execution": {
+                "checkMode": False,
+                "diff": False,
+                "verbosity": 0,
+                "strategy": "linear",
+                "flushCache": False,
+                "forceHandlers": False,
+                "step": False,
+            },
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+
+    # Verify default flags are not present
+    assert "--check" not in args
+    assert "--diff" not in args
+    assert "-v" not in args
+    assert "--strategy" not in args
+    assert "--flush-cache" not in args
+    assert "--force-handlers" not in args
+    assert "--step" not in args

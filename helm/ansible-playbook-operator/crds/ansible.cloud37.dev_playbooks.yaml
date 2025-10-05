@@ -68,6 +68,65 @@ spec:
                 extraVars:
                   type: object
                   additionalProperties: true
+                execution:
+                  type: object
+                  description: Ansible execution options and CLI flags
+                  properties:
+                    tags:
+                      type: array
+                      items:
+                        type: string
+                      description: List of tags to run (--tags)
+                    skipTags:
+                      type: array
+                      items:
+                        type: string
+                      description: List of tags to skip (--skip-tags)
+                    checkMode:
+                      type: boolean
+                      default: false
+                      description: Run in check mode (--check)
+                    diff:
+                      type: boolean
+                      default: false
+                      description: Show differences when files are changed (--diff)
+                    verbosity:
+                      type: integer
+                      minimum: 0
+                      maximum: 4
+                      default: 0
+                      description: Verbosity level (-v, -vv, -vvv, -vvvv)
+                    limit:
+                      type: string
+                      description: Limit execution to specific hosts (--limit)
+                    connectionTimeout:
+                      type: integer
+                      minimum: 1
+                      description: Connection timeout in seconds (--timeout)
+                    forks:
+                      type: integer
+                      minimum: 1
+                      description: Number of parallel processes (--forks)
+                    strategy:
+                      type: string
+                      enum: [linear, free]
+                      default: linear
+                      description: Strategy for executing tasks (--strategy)
+                    flushCache:
+                      type: boolean
+                      default: false
+                      description: Clear the fact cache (--flush-cache)
+                    forceHandlers:
+                      type: boolean
+                      default: false
+                      description: Run handlers even if a task fails (--force-handlers)
+                    startAtTask:
+                      type: string
+                      description: Start execution at a specific task (--start-at-task)
+                    step:
+                      type: boolean
+                      default: false
+                      description: One-step-at-a-time execution (--step)
                 extraVarsSecretRefs:
                   type: array
                   items:

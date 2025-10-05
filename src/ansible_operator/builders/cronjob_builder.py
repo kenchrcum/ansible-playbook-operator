@@ -234,12 +234,77 @@ def build_cronjob(
         # Default to "password" key if not specified, but CRD schema doesn't allow key specification
         vault_password_flags = ["--vault-password-file", "/vault-password/password"]
 
+    # Build execution flags from spec.execution
+    execution_flags: list[str] = []
+    execution = spec.get("execution") or {}
+
+    # Tags
+    tags = execution.get("tags") or []
+    if tags:
+        execution_flags.extend(["--tags", ",".join(tags)])
+
+    # Skip tags
+    skip_tags = execution.get("skipTags") or []
+    if skip_tags:
+        execution_flags.extend(["--skip-tags", ",".join(skip_tags)])
+
+    # Check mode
+    if execution.get("checkMode", False):
+        execution_flags.append("--check")
+
+    # Diff
+    if execution.get("diff", False):
+        execution_flags.append("--diff")
+
+    # Verbosity
+    verbosity = execution.get("verbosity", 0)
+    if verbosity > 0:
+        execution_flags.append("-" + "v" * min(verbosity, 4))
+
+    # Limit
+    limit = execution.get("limit")
+    if limit:
+        execution_flags.extend(["--limit", limit])
+
+    # Connection timeout
+    connection_timeout = execution.get("connectionTimeout")
+    if connection_timeout:
+        execution_flags.extend(["--timeout", str(connection_timeout)])
+
+    # Forks
+    forks = execution.get("forks")
+    if forks:
+        execution_flags.extend(["--forks", str(forks)])
+
+    # Strategy
+    strategy = execution.get("strategy")
+    if strategy and strategy != "linear":  # linear is default
+        execution_flags.extend(["--strategy", strategy])
+
+    # Flush cache
+    if execution.get("flushCache", False):
+        execution_flags.append("--flush-cache")
+
+    # Force handlers
+    if execution.get("forceHandlers", False):
+        execution_flags.append("--force-handlers")
+
+    # Start at task
+    start_at_task = execution.get("startAtTask")
+    if start_at_task:
+        execution_flags.extend(["--start-at-task", start_at_task])
+
+    # Step
+    if execution.get("step", False):
+        execution_flags.append("--step")
+
     ansible_cmd_parts: list[str] = [
         "ansible-playbook",
         playbook_path,
         *inventory_flags,
         *extra_vars_flags,
         *vault_password_flags,
+        *execution_flags,
     ]
 
     script_lines: list[str] = [

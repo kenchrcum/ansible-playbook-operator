@@ -22,7 +22,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Caching: optional PVC-backed cache for `~/.ansible` collections/roles per `Repository.spec.cache` and chart values.
 - [ ] Traceability: label Jobs with `ansible.cloud37.dev/run-id` and resolved `ansible.cloud37.dev/revision`; annotate rendered command sans secrets.
 - [ ] Security defaults: ensure container security merges defaults rather than being entirely replaced; enforce `readOnlyRootFilesystem`, `seccompProfile: RuntimeDefault`, `allowPrivilegeEscalation: false`, drop all caps unless explicitly overridden with justification.
-- [ ] CLI options: extend to support tags, check mode, timeout, and common `ansible-playbook` toggles via `Playbook.spec` (future-compatible design).
+- [x] CLI options: extend to support tags, check mode, timeout, and common `ansible-playbook` toggles via `Playbook.spec` (future-compatible design).
 
 ### Observability
 - [x] Logging: structured JSON logs with `controller`, `resource`, `uid`, `runId`, `event`, `reason`; never log secrets.
@@ -72,7 +72,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 
 ### From user’s current priorities
 - [x] RBAC presets for minimal, scoped, and cluster-admin roles/bindings controlled by chart values.
-- [ ] Broaden Ansible execution capabilities and configuration options beyond basic playbooks (vars, tags, vault, multiple inventories, retries/timeouts).
+- [x] Broaden Ansible execution capabilities and configuration options beyond basic playbooks (vars, tags, vault, multiple inventories, retries/timeouts).
 - [ ] General Helm chart improvements (values structure, docs, examples, NetworkPolicies, digest pinning).
 
 ### Later-phase (v1beta1+) considerations
