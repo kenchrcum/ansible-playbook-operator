@@ -17,6 +17,7 @@ from .constants import (
     API_GROUP_VERSION,
     ANNOTATION_OWNER_UID,
     COND_AUTH_VALID,
+    COND_BLOCKED_BY_CONCURRENCY,
     COND_CLONE_READY,
     COND_READY,
     FINALIZER,
@@ -107,6 +108,138 @@ def _update_condition(
     filtered = [c for c in conditions if c.get("type") != type_]
     filtered.append({"type": type_, "status": status_value, "reason": reason, "message": message})
     status["conditions"] = filtered
+
+
+def _check_concurrent_jobs(namespace: str, schedule_name: str, owner_uid: str) -> tuple[bool, str]:
+    """
+    Check if there are currently running Jobs for this Schedule.
+    Returns (has_concurrent_jobs, blocking_reason).
+    """
+    try:
+        batch_api = client.BatchV1Api()
+        # List Jobs in the namespace with our owner label
+        jobs = batch_api.list_namespaced_job(
+            namespace=namespace,
+            label_selector=f"{LABEL_OWNER_UID}={owner_uid}",
+        )
+
+        # Check for active (running) jobs
+        active_jobs = []
+        for job in jobs.items:
+            status = job.status
+            # Job is considered active if it's not completed or failed
+            if (status.active is not None and status.active > 0) or (
+                status.succeeded is None and status.failed is None
+            ):
+                active_jobs.append(job.metadata.name)
+
+        if active_jobs:
+            return True, f"Active Jobs: {', '.join(active_jobs)}"
+
+        return False, ""
+    except Exception:
+        # If we can't check, assume no blocking (fail open)
+        return False, ""
+
+
+def _update_schedule_conditions(
+    patch_status: dict[str, Any],
+    namespace: str,
+    schedule_name: str,
+    uid: str,
+    spec: dict[str, Any],
+    cronjob_exists: bool = True,
+    playbook_ready: bool = True,
+    current_status: dict[str, Any] | None = None,
+) -> None:
+    """
+    Update Schedule conditions based on current state.
+    """
+    concurrency_policy = spec.get("concurrencyPolicy", "Forbid")
+
+    # Check for concurrent jobs for all policies (to set BlockedByConcurrency condition)
+    has_concurrent_jobs, blocking_reason = _check_concurrent_jobs(namespace, schedule_name, uid)
+
+    # Get current conditions for comparison
+    current_conditions = {}
+    if current_status:
+        for condition in current_status.get("conditions", []):
+            current_conditions[condition.get("type")] = condition
+
+    # Update BlockedByConcurrency condition
+    new_blocked_status = "True" if has_concurrent_jobs else "False"
+    new_blocked_reason = "ConcurrentJobsRunning" if has_concurrent_jobs else "NoConcurrentJobs"
+    new_blocked_message = (
+        f"Schedule blocked by concurrency policy: {blocking_reason}"
+        if has_concurrent_jobs
+        else "No concurrent Jobs running"
+    )
+
+    current_blocked = current_conditions.get(COND_BLOCKED_BY_CONCURRENCY, {})
+    if (
+        current_blocked.get("status") != new_blocked_status
+        or current_blocked.get("reason") != new_blocked_reason
+    ):
+        _update_condition(
+            patch_status,
+            COND_BLOCKED_BY_CONCURRENCY,
+            new_blocked_status,
+            new_blocked_reason,
+            new_blocked_message,
+        )
+
+        # Emit event for condition change
+        event_type = "Warning" if has_concurrent_jobs else "Normal"
+        _emit_event(
+            kind="Schedule",
+            namespace=namespace,
+            name=schedule_name,
+            reason=f"ConditionChanged",
+            message=f"BlockedByConcurrency condition changed to {new_blocked_status}: {new_blocked_message}",
+            type_=event_type,
+        )
+
+    # Update Ready condition based on overall state
+    if not cronjob_exists:
+        new_ready_status = "False"
+        new_ready_reason = "CronJobMissing"
+        new_ready_message = "CronJob not found or not created"
+    elif not playbook_ready:
+        new_ready_status = "False"
+        new_ready_reason = "PlaybookNotReady"
+        new_ready_message = "Referenced Playbook is not ready"
+    elif has_concurrent_jobs and concurrency_policy == "Forbid":
+        new_ready_status = "False"
+        new_ready_reason = "BlockedByConcurrency"
+        new_ready_message = f"Schedule blocked by concurrency policy: {blocking_reason}"
+    else:
+        new_ready_status = "True"
+        new_ready_reason = "Ready"
+        new_ready_message = "Schedule is ready and CronJob is active"
+
+    current_ready = current_conditions.get(COND_READY, {})
+    if (
+        current_ready.get("status") != new_ready_status
+        or current_ready.get("reason") != new_ready_reason
+    ):
+        _update_condition(
+            patch_status,
+            COND_READY,
+            new_ready_status,
+            new_ready_reason,
+            new_ready_message,
+        )
+
+        # Emit event for condition change
+        event_type = "Warning" if new_ready_status == "False" else "Normal"
+        _emit_event(
+            kind="Schedule",
+            namespace=namespace,
+            name=schedule_name,
+            reason=f"ConditionChanged",
+            message=f"Ready condition changed to {new_ready_status}: {new_ready_message}",
+            type_=event_type,
+        )
 
 
 def _emit_event(
@@ -748,7 +881,7 @@ def reconcile_schedule(
         computed, used_macro = compute_computed_schedule(schedule_expr, uid)
         patch.status["computedSchedule"] = computed
 
-        # Basic stubbing for CronJob rendering; actual apply via SSA will come later
+        # Validate playbook reference
         playbook_ref = (spec or {}).get("playbookRef") or {}
         if not playbook_ref.get("name"):
             _update_condition(
@@ -771,6 +904,7 @@ def reconcile_schedule(
         # Fetch referenced Playbook and its Repository (best-effort)
         api = client.CustomObjectsApi()
         playbook_obj: dict[str, Any] = {}
+        playbook_ready = True
         try:
             playbook_obj = api.get_namespaced_custom_object(
                 group=API_GROUP,
@@ -779,8 +913,17 @@ def reconcile_schedule(
                 plural="playbooks",
                 name=playbook_ref["name"],
             )
+            # Check if Playbook is ready
+            playbook_status = playbook_obj.get("status", {})
+            playbook_conditions = playbook_status.get("conditions", [])
+            ready_condition = next(
+                (c for c in playbook_conditions if c.get("type") == COND_READY), None
+            )
+            if ready_condition and ready_condition.get("status") != "True":
+                playbook_ready = False
         except Exception:
             playbook_obj = {"spec": {"runtime": {}}}
+            playbook_ready = False
 
         repository_obj: dict[str, Any] | None = None
         known_hosts_available: bool = False
@@ -794,6 +937,16 @@ def reconcile_schedule(
                     plural="repositories",
                     name=repo_ref["name"],
                 )
+                # Check if Repository is ready
+                if repository_obj:
+                    repo_status = repository_obj.get("status", {})
+                    repo_conditions = repo_status.get("conditions", [])
+                    repo_ready_condition = next(
+                        (c for c in repo_conditions if c.get("type") == COND_READY), None
+                    )
+                    if repo_ready_condition and repo_ready_condition.get("status") != "True":
+                        playbook_ready = False
+
                 # Check if known hosts ConfigMap exists (optional for non-strict mode)
                 if repository_obj:
                     repo_spec = repository_obj.get("spec") or {}
@@ -919,12 +1072,16 @@ def reconcile_schedule(
                             message=f"Cannot safely adopt CronJob '{cronjob_name}': {adoption_reason}",
                             type_="Warning",
                         )
-                        _update_condition(
+                        # Update Schedule conditions for adoption skipped case
+                        _update_schedule_conditions(
                             patch.status,
-                            COND_READY,
-                            "False",
-                            "AdoptionSkipped",
-                            f"Cannot safely adopt existing CronJob: {adoption_reason}",
+                            namespace,
+                            name,
+                            uid,
+                            spec,
+                            cronjob_exists=False,
+                            playbook_ready=playbook_ready,
+                            current_status=status,
                         )
                         return
 
@@ -960,7 +1117,17 @@ def reconcile_schedule(
 
         # Logging and events are handled in the try/except blocks above
 
-        _update_condition(patch.status, COND_READY, "True", "Applied", "CronJob applied with SSA")
+        # Update Schedule conditions based on current state
+        _update_schedule_conditions(
+            patch.status,
+            namespace,
+            name,
+            uid,
+            spec,
+            cronjob_exists=True,
+            playbook_ready=playbook_ready,
+            current_status=status,
+        )
         structured_logging.logger.info(
             "Schedule reconciliation completed successfully",
             controller="Schedule",
@@ -1021,9 +1188,35 @@ def handle_cronjob_event(event: dict[str, Any], **_: Any) -> None:
     if next_schedule_time:
         patch_body["status"]["nextRunTime"] = next_schedule_time
 
+    # Get Schedule spec to update conditions
+    api = client.CustomObjectsApi()
+    try:
+        schedule_obj = api.get_namespaced_custom_object(
+            group=API_GROUP,
+            version="v1alpha1",
+            namespace=namespace,
+            plural="schedules",
+            name=schedule_name,
+        )
+        schedule_spec = schedule_obj.get("spec", {})
+
+        # Update conditions based on current state
+        _update_schedule_conditions(
+            patch_body["status"],
+            namespace,
+            schedule_name,
+            owner_uid,
+            schedule_spec,
+            cronjob_exists=True,
+            playbook_ready=True,  # Assume ready for CronJob events
+            current_status=schedule_obj.get("status"),
+        )
+    except Exception:
+        # If we can't get the Schedule, just update the time fields
+        pass
+
     # Apply the status update
     if patch_body["status"]:
-        api = client.CustomObjectsApi()
         with suppress(Exception):
             api.patch_namespaced_custom_object_status(
                 group=API_GROUP,
@@ -1094,9 +1287,35 @@ def handle_schedule_job_event(event: dict[str, Any], **_: Any) -> None:
     if revision:
         patch_body["status"]["lastRunRevision"] = revision
 
+    # Get Schedule spec to update conditions
+    api = client.CustomObjectsApi()
+    try:
+        schedule_obj = api.get_namespaced_custom_object(
+            group=API_GROUP,
+            version="v1alpha1",
+            namespace=namespace,
+            plural="schedules",
+            name=schedule_name,
+        )
+        schedule_spec = schedule_obj.get("spec", {})
+
+        # Update conditions based on current state
+        _update_schedule_conditions(
+            patch_body["status"],
+            namespace,
+            schedule_name,
+            owner_uid,
+            schedule_spec,
+            cronjob_exists=True,
+            playbook_ready=True,  # Assume ready for Job events
+            current_status=schedule_obj.get("status"),
+        )
+    except Exception:
+        # If we can't get the Schedule, just update the time fields
+        pass
+
     # Apply the status update
     if patch_body["status"]:
-        api = client.CustomObjectsApi()
         with suppress(Exception):
             api.patch_namespaced_custom_object_status(
                 group=API_GROUP,
