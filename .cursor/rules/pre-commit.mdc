@@ -8,6 +8,7 @@ globs: "**/*"
 Always run `pre-commit` checks locally before committing changes to ensure the repo stays committable and CI passes.
 
 ## Required Local Workflow
+- Activate virtual environment: `source .venv/bin/activate`
 - Run `pre-commit run --all-files` before commit.
 - If hooks fail, auto-fix with:
   - `ruff --fix .` and `ruff format .` (or rely on the hook to fix)

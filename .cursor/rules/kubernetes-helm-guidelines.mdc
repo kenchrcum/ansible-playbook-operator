@@ -23,6 +23,13 @@ description: "Guidelines for working with Kubernetes resources and Helm charts."
 - Helm values should be split between `operator.*`, `executorDefaults.*`, and `rbac.*`.
 - Provide example values for RBAC presets and multi-namespace watch.
 
+## RBAC Preset Implementation
+- Implement RBAC presets using conditional Helm templating (`{{- if eq .Values.rbac.preset "preset-name" }}`)
+- Structure presets with progressive permissions: `minimal` (default, least-privilege) → `scoped` (cross-namespace) → `cluster-admin` (full access)
+- Use separate Role/ClusterRole templates with conditional logic rather than complex conditionals within single resources
+- Document preset trade-offs in `values.yaml` comments and `NOTES.txt`
+- Maintain backward compatibility by keeping existing boolean flags functional
+
 ## Backward Compatibility (CRDs)
 - CRD changes must follow Kubernetes API versioning conventions.
 - Add new fields, but do not remove or break existing ones.

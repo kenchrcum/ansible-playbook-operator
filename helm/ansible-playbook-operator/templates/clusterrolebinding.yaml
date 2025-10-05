@@ -1,8 +1,43 @@
-{{- if .Values.rbac.clusterRead }}
+{{- if eq .Values.rbac.preset "cluster-admin" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "ansible-playbook-operator.fullname" . }}
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "ansible-playbook-operator.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ansible-playbook-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- else if eq .Values.rbac.preset "scoped" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "ansible-playbook-operator.fullname" . }}-scoped
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "ansible-playbook-operator.fullname" . }}-scoped
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "ansible-playbook-operator.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- else if .Values.rbac.clusterRead }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: {{ include "ansible-playbook-operator.fullname" . }}-read
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

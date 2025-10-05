@@ -6,9 +6,33 @@ metadata:
     app.kubernetes.io/name: ansible-playbook-operator
     app.kubernetes.io/instance: {{ .Release.Name }}
 rules:
+{{- if eq .Values.rbac.preset "cluster-admin" }}
+  # Cluster-admin preset: full permissions within namespace
+  - apiGroups: ["*"]
+    resources: ["*"]
+    verbs: ["*"]
+{{- else if eq .Values.rbac.preset "scoped" }}
+  # Scoped preset: extended namespaced permissions for cross-namespace scenarios
   - apiGroups: [""]
-    resources: ["events", "pods", "pods/log", "secrets"]
-    verbs: ["get", "list", "watch", "create", "patch"]
+    resources: ["events", "pods", "pods/log", "secrets", "configmaps"]
+    verbs: ["get", "list", "watch", "create", "patch", "update"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
+  - apiGroups: ["ansible.cloud37.dev"]
+    resources: ["repositories", "playbooks", "schedules"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["ansible.cloud37.dev"]
+    resources: ["repositories/status", "playbooks/status", "schedules/status"]
+    verbs: ["get", "update", "patch"]
+{{- else }}
+  # Minimal preset (default): least-privilege namespaced permissions
+  - apiGroups: [""]
+    resources: ["events", "pods", "pods/log"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
     verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]
@@ -18,3 +42,4 @@ rules:
   - apiGroups: ["ansible.cloud37.dev"]
     resources: ["repositories/status", "playbooks/status", "schedules/status"]
     verbs: ["get", "update", "patch"]
+{{- end }}

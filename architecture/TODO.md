@@ -71,7 +71,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [ ] Examples: add `ansible.cfg` in-repo example, `fileMounts`, `vaultPasswordSecretRef`, PVC cache usage, and RBAC presets; all runnable on kind/minikube.
 
 ### From user’s current priorities
-- [ ] RBAC presets for minimal, scoped, and cluster-admin roles/bindings controlled by chart values.
+- [x] RBAC presets for minimal, scoped, and cluster-admin roles/bindings controlled by chart values.
 - [ ] Broaden Ansible execution capabilities and configuration options beyond basic playbooks (vars, tags, vault, multiple inventories, retries/timeouts).
 - [ ] General Helm chart improvements (values structure, docs, examples, NetworkPolicies, digest pinning).
 - [ ] In-repo `ansible.cfg` support (path resolution, env wiring, doc & tests).

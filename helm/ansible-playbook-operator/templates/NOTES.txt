@@ -1,4 +1,12 @@
 Thank you for installing ansible-playbook-operator.
 
-This chart installs the operator deployment and RBAC (to be added in later phases).
+This chart installs the operator deployment and RBAC permissions.
 CRDs are delivered under crds/ and should be installed/upgraded with the chart.
+
+RBAC Configuration:
+- Preset: {{ .Values.rbac.preset }}
+  - minimal: Least-privilege namespaced permissions (recommended for single-namespace deployments)
+  - scoped: Cross-namespace access for multi-namespace scenarios
+  - cluster-admin: Full cluster permissions (use with caution, only when playbooks need cluster-wide access)
+
+The operator is now running and ready to manage Ansible playbook executions.

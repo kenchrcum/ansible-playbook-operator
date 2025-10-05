@@ -16,6 +16,7 @@ description: "Task tracking discipline: reconcile TODOs and mark processed items
 
 - When all goal tasks are done:
   - Check off any remaining items, reconcile, and close the TODO list.
+  - Mark tasks as completed in `architecture/TODO.md` with `[x]` format.
   - Provide a brief, high-signal summary of changes (no process narration).
 
 - Do not leave stale TODOs; the list must reflect current reality at all times.
