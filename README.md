@@ -45,6 +45,8 @@ The Ansible Playbook Operator brings Ansible automation directly into your Kuber
 - Service account override for least-privilege job execution
 - Optional PVC-backed cache for `~/.ansible` collections/roles
 - Support for secrets, extra vars, inventory paths, and ansible.cfg
+- Comprehensive Ansible execution options: tags, check mode, verbosity, timeouts, forks, strategies
+- Multiple secret injection modes: environment variables, file mounts, vault passwords
 
 ## 📋 Prerequisites
 
@@ -207,6 +209,13 @@ Configures an Ansible playbook execution environment.
 - `spec.ansibleCfgPath` — Custom ansible.cfg location (optional; relative paths resolve under `/workspace/repo`)
 - `spec.extraVars` — Extra variables as key-value pairs
 - `spec.extraVarsSecretRefs` — Secrets to merge into extra vars
+- `spec.execution` — Ansible execution options:
+  - `tags`, `skipTags` — Task filtering
+  - `checkMode`, `diff`, `step` — Execution modes
+  - `verbosity` (0-4) — Output verbosity
+  - `limit` — Host targeting
+  - `connectionTimeout`, `forks`, `strategy` — Performance tuning
+  - `flushCache`, `forceHandlers`, `startAtTask` — Advanced options
 - `spec.secrets` — Secret injection configuration:
   - `env` — Explicit environment variable mappings
   - `envFromSecretRefs` — Import all keys from Secrets
@@ -218,7 +227,7 @@ Configures an Ansible playbook execution environment.
   - `resources`, `nodeSelector`, `tolerations`, `affinity`
   - `securityContext`, `podSecurityContext`
 
-**Example: Playbook with secrets, vault, and custom ansible.cfg:**
+**Example: Playbook with execution options, secrets, vault, and custom ansible.cfg:**
 
 ```yaml
 apiVersion: ansible.cloud37.dev/v1alpha1
@@ -236,12 +245,31 @@ spec:
   extraVars:
     app_version: "1.2.3"
     environment: production
+  execution:
+    tags: ["deploy", "web"]
+    skipTags: ["test"]
+    checkMode: false
+    diff: true
+    verbosity: 2
+    limit: "web_servers:&production"
+    connectionTimeout: 30
+    forks: 10
+    strategy: "free"
   secrets:
     env:
       - envVarName: DB_PASSWORD
         secretRef:
           name: db-creds
           key: password
+    fileMounts:
+      - secretRef:
+          name: ssl-certs
+        mountPath: /ssl-certs
+        items:
+          - key: cert.pem
+            path: cert.pem
+          - key: key.pem
+            path: key.pem
     vaultPasswordSecretRef:
       name: vault-pass
       key: password
