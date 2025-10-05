@@ -1,6 +1,6 @@
 # Ansible Playbook Operator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org/)
 
 A lightweight, GitOps-focused Kubernetes operator for executing Ansible playbooks using the [Kopf](https://kopf.readthedocs.io) framework. Built with security, observability, and operational simplicity as core principles.
 
@@ -559,7 +559,7 @@ See the [Development Plan](./architecture/development-plan.md) for comprehensive
 
 ## 📝 License
 
-This project is licensed under the **MIT License**.
+This project is licensed under the **Unlicense**.
 
 ## 🔗 Links
 
