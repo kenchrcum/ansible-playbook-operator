@@ -367,6 +367,7 @@ def build_cronjob(
                         if active_deadline_seconds is not None
                         else {}
                     ),
+                    **({"ttlSecondsAfterFinished": ttl_seconds} if ttl_seconds is not None else {}),
                     "template": {
                         "metadata": {
                             "labels": {
@@ -374,7 +375,6 @@ def build_cronjob(
                                 LABEL_OWNER_KIND: "Schedule",
                                 LABEL_OWNER_NAME: f"{namespace}.{schedule_name}",
                                 LABEL_OWNER_UID: owner_uid,
-                                "ansible.cloud37.dev/run-id": "{{.metadata.name}}",  # Will be resolved by Kubernetes
                             },
                             **(
                                 {"annotations": {"ansible.cloud37.dev/revision": repo_revision}}
@@ -429,7 +429,6 @@ def build_cronjob(
                     },
                 }
             },
-            **({"ttlSecondsAfterFinished": ttl_seconds} if ttl_seconds is not None else {}),
         },
     }
     return manifest
