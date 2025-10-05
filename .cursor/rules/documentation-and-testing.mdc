@@ -10,11 +10,17 @@ description: "Guidelines for testing, documentation, and quality gates."
 - Use kind-based integration tests for controllers.
 - CI must pass linting, type-checking, unit tests, and an integration smoke test.
 - Every Pull Request must update tests and documentation as needed.
+- For Kubernetes controllers: mock Kopf patch objects and Kubernetes API calls appropriately.
+- Test condition management and event emission thoroughly for CRDs.
+- Use descriptive test names and cover both success and failure paths.
 
 ## Documentation
 - Keep `architecture/development-plan.md` as a living design document. Update it before implementing significant changes.
 - Examples in the `examples/` directory must be runnable in `kind` or `minikube` and follow security defaults.
+- Update `architecture/TODO.md` when completing tasks with `[x]` format.
 
 ## Quality Gates
 - New features must include metrics, events, and status conditions.
 - Reject changes that introduce secret leakage or reduce security defaults.
+- Repository CRD conditions: `AuthValid`, `CloneReady`, and derived `Ready` must be properly maintained.
+- Events must be emitted with concise reasons for `ValidateSucceeded`/`ValidateFailed`.

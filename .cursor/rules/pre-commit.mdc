@@ -7,6 +7,13 @@ globs: "**/*"
 
 Always run `pre-commit` checks locally before committing changes to ensure the repo stays committable and CI passes.
 
+## Running Tests
+Always run tests using the virtual environment:
+```bash
+source .venv/bin/activate
+pytest pre-commit run --all-files
+```
+
 ## Required Local Workflow
 - Activate virtual environment: `source .venv/bin/activate`
 - Run `pre-commit run --all-files` before commit.
@@ -16,7 +23,9 @@ Always run `pre-commit` checks locally before committing changes to ensure the r
   - Re-run `pre-commit run --all-files` until it passes.
 
 ## Typical Fixes Guided by Hooks
-- Import sorting/formatting (I001): reorder imports; group stdlib, third-party, local; use ruff-format.
+- Import sorting/formatting (I001): reorder imports; group stdlib, third-party, local; use `ruff check --fix` for auto-fix.
+- Unused imports (F401): remove unused imports like `pytest` in test files.
+- Type annotations: add proper type hints for variables, avoid `Any` in favor of specific types.
 - Simplifications (SIM105): prefer `contextlib.suppress(Exception)` over `try/except/pass`.
 - Mypy: remove unused `# type: ignore`, add precise typing, avoid `Any` in public APIs.
 

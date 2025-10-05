@@ -16,6 +16,7 @@ description: "Python coding standards and practices for the project."
 - Use guard clauses instead of deep nesting.
 - Handle errors explicitly; never swallow exceptions.
 - Keep functions small and focused. Extract pure functions for testability.
+- For test files: use proper type annotations for variables (e.g., `status: dict[str, Any] = {}`).
 
 ## Commit Hygiene
 - No commented-out code.
