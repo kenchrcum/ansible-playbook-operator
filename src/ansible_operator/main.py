@@ -117,25 +117,92 @@ def reconcile_repository(
         if meta.get("deletionTimestamp"):
             # Repository is being deleted
             if FINALIZER_REPOSITORY in (meta.get("finalizers") or []):
+                structured_logging.logger.info(
+                    "Starting repository finalizer cleanup",
+                    controller="Repository",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="finalizer",
+                    reason="CleanupStarted",
+                )
+
                 # Clean up probe jobs
                 batch_api = client.BatchV1Api()
                 job_name = f"{name}-probe"
+                cleanup_success = True
+
                 try:
                     batch_api.delete_namespaced_job(
                         name=job_name,
                         namespace=namespace,
                         propagation_policy="Background",
                     )
+                    structured_logging.logger.info(
+                        "Probe job deletion initiated",
+                        controller="Repository",
+                        resource=f"{namespace}/{name}",
+                        uid=uid,
+                        event="finalizer",
+                        reason="ProbeJobDeleted",
+                        job_name=job_name,
+                    )
                 except client.exceptions.ApiException as e:
-                    if e.status != 404:
-                        # Log but don't fail deletion
-                        pass
+                    if e.status == 404:
+                        structured_logging.logger.info(
+                            "Probe job not found (already deleted)",
+                            controller="Repository",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="finalizer",
+                            reason="ProbeJobNotFound",
+                            job_name=job_name,
+                        )
+                    else:
+                        structured_logging.logger.error(
+                            f"Failed to delete probe job: {str(e)}",
+                            controller="Repository",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="finalizer",
+                            reason="ProbeJobDeletionFailed",
+                            job_name=job_name,
+                            error=str(e),
+                        )
+                        cleanup_success = False
 
                 # Remove finalizer
                 finalizers = meta.get("finalizers", [])
                 if FINALIZER_REPOSITORY in finalizers:
                     finalizers.remove(FINALIZER_REPOSITORY)
                     patch.meta["finalizers"] = finalizers
+
+                    # Emit event for cleanup completion
+                    event_reason = "CleanupSucceeded" if cleanup_success else "CleanupFailed"
+                    event_message = (
+                        "Repository finalizer cleanup completed successfully"
+                        if cleanup_success
+                        else "Repository finalizer cleanup completed with errors"
+                    )
+                    event_type = "Normal" if cleanup_success else "Warning"
+
+                    _emit_event(
+                        kind="Repository",
+                        namespace=namespace,
+                        name=name,
+                        reason=event_reason,
+                        message=event_message,
+                        type_=event_type,
+                    )
+
+                    structured_logging.logger.info(
+                        "Repository finalizer cleanup completed",
+                        controller="Repository",
+                        resource=f"{namespace}/{name}",
+                        uid=uid,
+                        event="finalizer",
+                        reason=event_reason,
+                        cleanup_success=cleanup_success,
+                    )
             return
 
         # Add finalizer if not present
@@ -143,6 +210,15 @@ def reconcile_repository(
             finalizers = meta.get("finalizers", [])
             finalizers.append(FINALIZER_REPOSITORY)
             patch.meta["finalizers"] = finalizers
+
+            structured_logging.logger.info(
+                "Added repository finalizer",
+                controller="Repository",
+                resource=f"{namespace}/{name}",
+                uid=uid,
+                event="finalizer",
+                reason="FinalizerAdded",
+            )
 
         # Minimal validation; deeper checks will be added later
         url = (spec or {}).get("url")
