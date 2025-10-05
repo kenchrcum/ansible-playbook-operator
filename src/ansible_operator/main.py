@@ -309,21 +309,21 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
             "Connectivity probe successful",
         )
         _update_condition(
-            patch_body["status"], "CloneReady", "Unknown", "Deferred", "Clone not yet attempted"
+            patch_body["status"], "CloneReady", "True", "ProbeSucceeded", "Repository clone ready"
         )
         _update_condition(
             patch_body["status"],
             COND_READY,
-            "Unknown",
-            "Deferred",
-            "Repository connectivity verified",
+            "True",
+            "Validated",
+            "Repository is ready for use",
         )
         _emit_event(
             kind="Repository",
             namespace=namespace,
             name=repository_name,
             reason="ValidateSucceeded",
-            message="Repository connectivity verified",
+            message="Repository connectivity and clone capability verified",
         )
     elif failed > 0:
         _update_condition(
