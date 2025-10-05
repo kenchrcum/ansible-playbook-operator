@@ -1,0 +1,24 @@
+---
+alwaysApply: true
+description: "Licensing information and guidelines for the project."
+---
+# Project Licensing
+
+## License
+This project is licensed under the **Unlicense**, which places the software in the public domain.
+
+## Key Implications
+- **No Copyright**: The software is dedicated to the public domain
+- **No Attribution Required**: Users are not required to credit the original authors
+- **No Warranty**: Software is provided "as-is" without warranties
+- **Maximum Permissiveness**: Users can use, modify, distribute, and sell without restrictions
+
+## Practical Guidelines
+- Include the standard Unlicense text in LICENSE file
+- Update pyproject.toml license field to "Unlicense"
+- Update documentation badges and references
+- No need for license headers in source files (though attribution is appreciated)
+
+## References
+- Unlicense text: https://unlicense.org/
+- SPDX identifier: Unlicense

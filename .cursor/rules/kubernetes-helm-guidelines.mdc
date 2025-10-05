@@ -21,7 +21,8 @@ description: "Guidelines for working with Kubernetes resources and Helm charts."
 ## Helm
 - CRDs are stored in `helm/ansible-playbook-operator/crds/` and should not be templated.
 - Helm values should be split between `operator.*`, `executorDefaults.*`, and `rbac.*`.
-- Provide example values for RBAC presets and multi-namespace watch.
+- Provide example values for RBAC presets, multi-namespace watch, and cache configuration.
+- Include optional PVC templates for executor caching when `executorDefaults.cache.createPVC` is enabled.
 
 ## RBAC Preset Implementation
 - Implement RBAC presets using conditional Helm templating (`{{- if eq .Values.rbac.preset "preset-name" }}`)

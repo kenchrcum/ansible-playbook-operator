@@ -43,6 +43,7 @@ The Ansible Playbook Operator brings Ansible automation directly into your Kuber
 - Custom executor images (default: `kenchrcum/ansible-runner`)
 - Resource limits, node selectors, tolerations, affinity rules
 - Service account override for least-privilege job execution
+- Optional PVC-backed cache for `~/.ansible` collections/roles
 - Support for secrets, extra vars, inventory paths, and ansible.cfg
 
 ## 📋 Prerequisites
@@ -148,6 +149,8 @@ Represents a Git repository containing Ansible content.
 - `spec.auth.secretRef` — Reference to Secret with credentials
 - `spec.ssh.knownHostsConfigMapRef` — ConfigMap with SSH known_hosts
 - `spec.ssh.strictHostKeyChecking` (default: `true`) — Enforce host key verification
+- `spec.cache.strategy` (default: `none`) — Cache strategy: `none` or `pvc`
+- `spec.cache.pvcName` — PVC name for caching when strategy is `pvc`
 - `spec.paths` — Customize locations for playbooks, inventory, roles, requirements
 
 **Example: SSH with strict host key checking:**
@@ -172,6 +175,20 @@ spec:
     playbookDir: playbooks
     inventoryDir: inventory
     requirementsFile: requirements.yml
+```
+
+**Example: PVC-backed cache for Ansible collections:**
+
+```yaml
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Repository
+metadata:
+  name: cached-repo
+spec:
+  url: https://github.com/myorg/ansible.git
+  cache:
+    strategy: pvc
+    pvcName: ansible-cache-pvc
 ```
 
 **Status Conditions:**
@@ -508,6 +525,12 @@ executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
     tag: latest
+  cache:
+    strategy: none  # Default cache strategy for repositories
+    pvcName: ""  # Default PVC name when strategy is pvc
+    createPVC: false  # Create PVC via Helm
+    storageSize: "10Gi"  # PVC size when createPVC is true
+    storageClassName: ""  # Storage class for PVC
 
 rbac:
   preset: minimal  # minimal|scoped|cluster-admin
