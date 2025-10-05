@@ -368,6 +368,20 @@ def build_cronjob(
                         else {}
                     ),
                     "template": {
+                        "metadata": {
+                            "labels": {
+                                LABEL_MANAGED_BY: "ansible-operator",
+                                LABEL_OWNER_KIND: "Schedule",
+                                LABEL_OWNER_NAME: f"{namespace}.{schedule_name}",
+                                LABEL_OWNER_UID: owner_uid,
+                                "ansible.cloud37.dev/run-id": "{{.metadata.name}}",  # Will be resolved by Kubernetes
+                            },
+                            **(
+                                {"annotations": {"ansible.cloud37.dev/revision": repo_revision}}
+                                if repo_revision
+                                else {}
+                            ),
+                        },
                         "spec": {
                             "restartPolicy": "Never",
                             "securityContext": pod_security_context,
@@ -411,7 +425,7 @@ def build_cronjob(
                                 }
                             ],
                             **({"volumes": volumes} if volumes else {}),
-                        }
+                        },
                     },
                 }
             },

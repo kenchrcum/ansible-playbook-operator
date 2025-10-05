@@ -171,7 +171,7 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 - Apply with SSA; adopt existing CronJob if labels/owner match; patch only owned fields.
 - Status updates:
   - Conditions: `Ready` if CronJob matches desired; `BlockedByConcurrency` when appropriate.
-  - `lastRunTime`, `nextRunTime`, `lastJobRef` are updated from observed CronJob/Job status when available.
+  - `lastRunTime`, `nextRunTime`, `lastJobRef`, `lastRunRevision` are updated from observed CronJob/Job status when available.
   - Emit Events: `CronJobCreated`, `CronJobPatched`, `CronJobAdopted`.
 
 #### 3.7 Traceability labels/annotations (on CronJobs/Jobs)
@@ -190,7 +190,22 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
   - JobCreated, JobSucceeded, JobFailed, CleanupSucceeded, CleanupFailed.
 - Conditions are authoritative for user-facing state; Events are ephemeral but helpful for debugging.
 
-#### 3.9 Drift detection and SSA strategy
+#### 3.9 Status observation patterns
+- CronJob event handler (`@kopf.on.event("batch", "v1", "cronjobs")`):
+  - Observes `status.lastScheduleTime` → updates `Schedule.status.lastRunTime`
+  - Observes `status.nextScheduleTime` → updates `Schedule.status.nextRunTime`
+  - Only processes CronJobs with `ansible.cloud37.dev/managed-by: ansible-operator` label
+  - Uses owner labels to identify target Schedule: `ansible.cloud37.dev/owner-name: <namespace.schedule-name>`
+- Job event handler (`@kopf.on.event("batch", "v1", "jobs")`):
+  - Observes Job creation → updates `Schedule.status.lastJobRef` (namespaced name)
+  - Observes Job creation timestamp → updates `Schedule.status.lastRunTime`
+  - Observes Job annotations → updates `Schedule.status.lastRunRevision` from `ansible.cloud37.dev/revision`
+  - Excludes connectivity probe jobs (`ansible.cloud37.dev/probe-type: connectivity`)
+  - Uses owner labels to identify target Schedule
+- Status updates are best-effort with graceful error handling (suppress exceptions)
+- Field manager `ansible-operator` ensures SSA ownership of status fields
+
+#### 3.10 Drift detection and SSA strategy
 - Use SSA diff to detect drift only within operator-owned fields; do not overwrite user-managed fields.
 - Safe CronJob adoption logic:
   - If CronJob is already managed by ansible-operator: check owner UID (label or annotation) matches
@@ -199,7 +214,7 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
   - Otherwise: emit warning and skip adoption to avoid hijacking
 - Never force-apply unless recovering from a previous operator field manager; prefer granular patches.
 
-#### 3.10 Requeues and backoff
+#### 3.11 Requeues and backoff
 - Requeue on transient failures with exponential backoff; cap max delay.
 - Periodic soft requeue (e.g., every 10–15 minutes) for `Schedule` to refresh `nextRunTime` if needed.
 - Avoid time-based loops where possible; rely on Kubernetes events/status.

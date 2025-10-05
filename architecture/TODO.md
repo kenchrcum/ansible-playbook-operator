@@ -8,7 +8,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Repository: add finalizer `ansible.cloud37.dev/finalizer` and clean up probe artifacts on delete.
 - [x] Playbook: validate references and paths (exists relative to repo: playbook, inventory, optional `ansible.cfg`), surface `InvalidPath` or `RepoNotReady` conditions.
 - [x] Schedule: adopt existing CronJobs safely (owner/labels match or UID annotation) and reconcile via SSA to patch only operator-owned fields.
-- [ ] Schedule: update `status.lastRunTime`, `status.nextRunTime`, `status.lastJobRef`, `status.lastRunRevision` from observed CronJob/Job.
+- [x] Schedule: update `status.lastRunTime`, `status.nextRunTime`, `status.lastJobRef`, `status.lastRunRevision` from observed CronJob/Job.
 - [ ] Schedule: set Conditions (`Ready`, `BlockedByConcurrency`) according to observed state and `concurrencyPolicy`.
 - [ ] Cross-resource triggers: index `Repository -> [Playbook…]` and `Playbook -> [Schedule…]`; requeue dependents on changes with rate-limiting.
 - [ ] Manual run: honor `Playbook` annotation `ansible.cloud37.dev/run-now: <id>` to create a one-shot Job; record outcome in `status` and emit events.

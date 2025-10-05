@@ -985,6 +985,140 @@ def reconcile_schedule(
         metrics.RECONCILE_DURATION.labels(kind="Schedule").observe(monotonic() - started_at)
 
 
+@kopf.on.event("batch", "v1", "cronjobs")
+def handle_cronjob_event(event: dict[str, Any], **_: Any) -> None:
+    """Handle CronJob events to update Schedule status fields."""
+    cronjob = event.get("object", {})
+    metadata = cronjob.get("metadata", {})
+    labels = metadata.get("labels", {})
+
+    # Only handle CronJobs managed by ansible-operator
+    if labels.get(LABEL_MANAGED_BY) != "ansible-operator":
+        return
+
+    # Extract Schedule information from labels
+    owner_uid = labels.get(LABEL_OWNER_UID)
+    owner_name = labels.get(LABEL_OWNER_NAME)
+    if not owner_uid or not owner_name:
+        return
+
+    # Parse owner name (format: namespace.schedule-name)
+    if "." not in owner_name:
+        return
+    namespace, schedule_name = owner_name.split(".", 1)
+
+    # Get CronJob status
+    status = cronjob.get("status", {})
+    last_schedule_time = status.get("lastScheduleTime")
+    next_schedule_time = status.get("nextScheduleTime")
+
+    # Update Schedule status
+    patch_body: dict[str, Any] = {"status": {}}
+
+    if last_schedule_time:
+        patch_body["status"]["lastRunTime"] = last_schedule_time
+
+    if next_schedule_time:
+        patch_body["status"]["nextRunTime"] = next_schedule_time
+
+    # Apply the status update
+    if patch_body["status"]:
+        api = client.CustomObjectsApi()
+        with suppress(Exception):
+            api.patch_namespaced_custom_object_status(
+                group=API_GROUP,
+                version="v1alpha1",
+                namespace=namespace,
+                plural="schedules",
+                name=schedule_name,
+                body=patch_body,
+                field_manager="ansible-operator",
+            )
+            structured_logging.logger.info(
+                "Schedule status updated from CronJob",
+                controller="Schedule",
+                resource=f"{namespace}/{schedule_name}",
+                uid=owner_uid,
+                event="cronjob",
+                reason="StatusUpdated",
+                last_schedule_time=last_schedule_time,
+                next_schedule_time=next_schedule_time,
+            )
+
+
+@kopf.on.event("batch", "v1", "jobs")
+def handle_schedule_job_event(event: dict[str, Any], **_: Any) -> None:
+    """Handle Job events to update Schedule status fields."""
+    job = event.get("object", {})
+    metadata = job.get("metadata", {})
+    labels = metadata.get("labels", {})
+
+    # Only handle Jobs managed by ansible-operator (not connectivity probe jobs)
+    if labels.get(LABEL_MANAGED_BY) != "ansible-operator":
+        return
+
+    # Skip connectivity probe jobs
+    if labels.get("ansible.cloud37.dev/probe-type") == "connectivity":
+        return
+
+    # Extract Schedule information from labels
+    owner_uid = labels.get(LABEL_OWNER_UID)
+    owner_name = labels.get(LABEL_OWNER_NAME)
+    if not owner_uid or not owner_name:
+        return
+
+    # Parse owner name (format: namespace.schedule-name)
+    if "." not in owner_name:
+        return
+    namespace, schedule_name = owner_name.split(".", 1)
+
+    # Get Job status
+    status = job.get("status", {})
+    job_name = metadata.get("name", "")
+
+    # Update Schedule status with Job reference
+    patch_body: dict[str, Any] = {"status": {}}
+
+    # Update lastJobRef
+    if job_name:
+        patch_body["status"]["lastJobRef"] = f"{namespace}/{job_name}"
+
+    # Update lastRunTime from Job creation time
+    creation_timestamp = metadata.get("creationTimestamp")
+    if creation_timestamp:
+        patch_body["status"]["lastRunTime"] = creation_timestamp
+
+    # Extract revision from Job annotations if available
+    annotations = metadata.get("annotations", {})
+    revision = annotations.get("ansible.cloud37.dev/revision")
+    if revision:
+        patch_body["status"]["lastRunRevision"] = revision
+
+    # Apply the status update
+    if patch_body["status"]:
+        api = client.CustomObjectsApi()
+        with suppress(Exception):
+            api.patch_namespaced_custom_object_status(
+                group=API_GROUP,
+                version="v1alpha1",
+                namespace=namespace,
+                plural="schedules",
+                name=schedule_name,
+                body=patch_body,
+                field_manager="ansible-operator",
+            )
+            structured_logging.logger.info(
+                "Schedule status updated from Job",
+                controller="Schedule",
+                resource=f"{namespace}/{schedule_name}",
+                uid=owner_uid,
+                event="job",
+                reason="StatusUpdated",
+                job_name=job_name,
+                revision=revision,
+            )
+
+
 # Finalizers (no-op placeholders for now)
 @kopf.on.delete(API_GROUP_VERSION, "schedules")
 def on_delete_schedule(name: str, namespace: str, **_: Any) -> None:
