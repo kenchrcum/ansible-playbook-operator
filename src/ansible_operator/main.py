@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import suppress
+from datetime import datetime, timezone
 from time import monotonic
 from typing import Any
 
@@ -25,8 +26,11 @@ from .constants import (
     LABEL_OWNER_KIND,
     LABEL_OWNER_NAME,
     LABEL_OWNER_UID,
+    LABEL_RUN_ID,
 )
+from .services.dependencies import dependency_service
 from .services.git import GitService
+from .services.manual_run import manual_run_service
 from .utils.schedule import compute_computed_schedule
 
 FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
@@ -517,6 +521,10 @@ def reconcile_repository(
             patch.status, COND_READY, "Unknown", "Deferred", "Repository connectivity being probed"
         )
 
+        # Index dependencies and trigger dependent Playbooks
+        dependency_service.index_repository_dependencies(namespace, name)
+        dependency_service.requeue_dependent_playbooks(namespace, name)
+
         structured_logging.logger.info(
             "Repository reconciliation completed successfully",
             controller="Repository",
@@ -673,6 +681,90 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
             )
 
 
+@kopf.on.event("batch", "v1", "jobs")
+def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
+    """Handle manual run Job completion events to update Playbook status."""
+    job = event.get("object", {})
+    metadata = job.get("metadata", {})
+    labels = metadata.get("labels", {})
+
+    # Only handle manual run jobs
+    if labels.get("ansible.cloud37.dev/run-type") != "manual":
+        return
+
+    job_name = metadata.get("name", "")
+    namespace = metadata.get("namespace", "")
+    run_id = labels.get(LABEL_RUN_ID)
+    owner_uid = labels.get(LABEL_OWNER_UID)
+    owner_name = labels.get(LABEL_OWNER_NAME)
+
+    if not run_id or not owner_uid or not owner_name:
+        return
+
+    # Parse owner name (format: namespace.playbook-name)
+    if "." not in owner_name:
+        return
+    owner_namespace, playbook_name = owner_name.split(".", 1)
+
+    # Only process if in the same namespace
+    if owner_namespace != namespace:
+        return
+
+    # Get Job status
+    status = job.get("status", {})
+    succeeded = status.get("succeeded", 0)
+    failed = status.get("failed", 0)
+    completion_time = datetime.now(timezone.utc).isoformat()
+
+    # Determine final status
+    if succeeded > 0:
+        final_status = "Succeeded"
+        reason = "JobSucceeded"
+        message = "Manual run completed successfully"
+        event_type = "Normal"
+    elif failed > 0:
+        final_status = "Failed"
+        reason = "JobFailed"
+        message = "Manual run failed"
+        event_type = "Warning"
+    else:
+        # Job is still running or in unknown state
+        return
+
+    # Update Playbook status
+    manual_run_service.update_playbook_manual_run_status(
+        playbook_name=playbook_name,
+        namespace=namespace,
+        run_id=run_id,
+        job_name=job_name,
+        status=final_status,
+        reason=reason,
+        message=message,
+        completion_time=completion_time,
+    )
+
+    # Emit event
+    _emit_event(
+        kind="Playbook",
+        namespace=namespace,
+        name=playbook_name,
+        reason=f"ManualRun{final_status}",
+        message=f"Manual run Job '{job_name}' {final_status.lower()}: {message}",
+        type_=event_type,
+    )
+
+    structured_logging.logger.info(
+        f"Manual run Job {final_status.lower()}",
+        controller="Playbook",
+        resource=f"{namespace}/{playbook_name}",
+        uid=owner_uid,
+        event="manual-run",
+        reason=reason,
+        run_id=run_id,
+        job_name=job_name,
+    )
+
+
 @kopf.on.create(API_GROUP_VERSION, "playbooks")
 @kopf.on.update(API_GROUP_VERSION, "playbooks")
 @kopf.on.resume(API_GROUP_VERSION, "playbooks")
@@ -683,6 +775,7 @@ def reconcile_playbook(
     name: str,
     namespace: str,
     uid: str,
+    meta: kopf.Meta,
     **_: Any,
 ) -> None:
     started_at = monotonic()
@@ -829,6 +922,125 @@ def reconcile_playbook(
             reason="ValidateSucceeded",
             message="Playbook validation completed successfully",
         )
+
+        # Check for manual run request
+        annotations = meta.get("annotations", {})
+        run_id = manual_run_service.detect_manual_run_request(annotations)
+        if run_id:
+            # Get repository object for manual run
+            repository_obj: dict[str, Any] | None = None
+            known_hosts_available: bool = False
+            try:
+                repo_ref = (spec or {}).get("repositoryRef") or {}
+                if repo_ref.get("name"):
+                    custom_api = client.CustomObjectsApi()
+                    repository_obj = custom_api.get_namespaced_custom_object(
+                        group=API_GROUP,
+                        version="v1alpha1",
+                        namespace=namespace,
+                        plural="repositories",
+                        name=repo_ref["name"],
+                    )
+                    # Check if known hosts ConfigMap is available
+                    if repository_obj:
+                        repo_spec = repository_obj.get("spec", {})
+                        ssh_cfg = repo_spec.get("ssh") or {}
+                        known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
+                        if known_hosts_cm:
+                            try:
+                                v1 = client.CoreV1Api()
+                                v1.read_namespaced_config_map(known_hosts_cm, namespace)
+                                known_hosts_available = True
+                            except client.exceptions.ApiException:
+                                known_hosts_available = False
+            except Exception:
+                repository_obj = None
+                known_hosts_available = False
+
+            # Create manual run Job
+            try:
+                job_name = manual_run_service.create_manual_run_job(
+                    playbook_name=name,
+                    namespace=namespace,
+                    playbook_spec=spec,
+                    repository_obj=repository_obj,
+                    run_id=run_id,
+                    owner_uid=uid,
+                    known_hosts_available=known_hosts_available,
+                )
+
+                # Update Playbook status
+                manual_run_service.update_playbook_manual_run_status(
+                    playbook_name=name,
+                    namespace=namespace,
+                    run_id=run_id,
+                    job_name=job_name,
+                    status="Running",
+                    reason="ManualRunStarted",
+                    message=f"Manual run Job '{job_name}' created",
+                )
+
+                # Clear the annotation
+                manual_run_service.clear_manual_run_annotation(name, namespace)
+
+                # Emit event
+                _emit_event(
+                    kind="Playbook",
+                    namespace=namespace,
+                    name=name,
+                    reason="ManualRunStarted",
+                    message=f"Manual run Job '{job_name}' created with run ID '{run_id}'",
+                )
+
+                structured_logging.logger.info(
+                    "Manual run Job created",
+                    controller="Playbook",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="manual-run",
+                    reason="JobCreated",
+                    run_id=run_id,
+                    job_name=job_name,
+                )
+            except Exception as e:
+                structured_logging.logger.error(
+                    f"Failed to create manual run Job: {str(e)}",
+                    controller="Playbook",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="manual-run",
+                    reason="JobCreationFailed",
+                    run_id=run_id,
+                    error=str(e),
+                )
+
+                # Update status with failure
+                manual_run_service.update_playbook_manual_run_status(
+                    playbook_name=name,
+                    namespace=namespace,
+                    run_id=run_id,
+                    job_name="",
+                    status="Failed",
+                    reason="JobCreationFailed",
+                    message=f"Failed to create manual run Job: {str(e)}",
+                )
+
+                # Clear the annotation even on failure
+                manual_run_service.clear_manual_run_annotation(name, namespace)
+
+                # Emit failure event
+                _emit_event(
+                    kind="Playbook",
+                    namespace=namespace,
+                    name=name,
+                    reason="ManualRunFailed",
+                    message=f"Failed to create manual run Job: {str(e)}",
+                    type_="Warning",
+                )
+
+        # Index dependencies and trigger dependent Schedules
+        dependency_service.index_playbook_dependencies(namespace, name)
+        dependency_service.requeue_dependent_schedules(namespace, name)
 
         structured_logging.logger.info(
             "Playbook reconciliation completed successfully",
@@ -1338,7 +1550,21 @@ def handle_schedule_job_event(event: dict[str, Any], **_: Any) -> None:
             )
 
 
-# Finalizers (no-op placeholders for now)
+# Finalizers and cleanup handlers
+@kopf.on.delete(API_GROUP_VERSION, "repositories")
+def on_delete_repository(name: str, namespace: str, **_: Any) -> None:
+    """Clean up dependencies when Repository is deleted."""
+    dependency_service.cleanup_dependencies(namespace, "repository", name)
+
+
+@kopf.on.delete(API_GROUP_VERSION, "playbooks")
+def on_delete_playbook(name: str, namespace: str, **_: Any) -> None:
+    """Clean up dependencies when Playbook is deleted."""
+    dependency_service.cleanup_dependencies(namespace, "playbook", name)
+
+
 @kopf.on.delete(API_GROUP_VERSION, "schedules")
 def on_delete_schedule(name: str, namespace: str, **_: Any) -> None:
-    return
+    """Clean up dependencies when Schedule is deleted."""
+    # Schedules don't have dependents, but we could clean up any references
+    pass

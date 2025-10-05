@@ -251,6 +251,26 @@ spec:
                 lastValidationTime:
                   type: string
                   format: date-time
+                lastManualRun:
+                  type: object
+                  properties:
+                    runId:
+                      type: string
+                    jobRef:
+                      type: string
+                    startTime:
+                      type: string
+                      format: date-time
+                    completionTime:
+                      type: string
+                      format: date-time
+                    status:
+                      type: string
+                      enum: [Running, Succeeded, Failed]
+                    reason:
+                      type: string
+                    message:
+                      type: string
                 conditions:
                   type: array
                   items:
