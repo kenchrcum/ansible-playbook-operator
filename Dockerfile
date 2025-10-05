@@ -1,6 +1,10 @@
 # syntax=docker/dockerfile:1.7-labs
 
-FROM python:3.13-alpine AS base
+# Optional: pin base image by digest for enhanced security and reproducibility
+# When DIGEST is provided, it takes precedence over tag
+# Usage: docker build --build-arg BASE_DIGEST=sha256:abc123... .
+ARG BASE_DIGEST=""
+FROM python:3.13-alpine${BASE_DIGEST:+@${BASE_DIGEST}} AS base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
@@ -18,7 +22,7 @@ RUN python -m pip install --upgrade pip && \
     python -m pip install .
 
 # Final image
-FROM python:3.13-alpine
+FROM python:3.13-alpine${BASE_DIGEST:+@${BASE_DIGEST}}
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 

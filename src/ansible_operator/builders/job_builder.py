@@ -22,6 +22,7 @@ def build_connectivity_probe_job(
     owner_kind: str = "Repository",
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
+    image_digest: str | None = None,
 ) -> dict[str, Any]:
     """Render a Job manifest for testing repository connectivity via git ls-remote.
 
@@ -159,7 +160,11 @@ def build_connectivity_probe_job(
                     "containers": [
                         {
                             "name": "connectivity-probe",
-                            "image": image_default,
+                            "image": (
+                                f"{image_default.split(':')[0]}@{image_digest}"
+                                if image_digest
+                                else image_default
+                            ),
                             "securityContext": container_security_context,
                             **({"env": env_list} if env_list else {}),
                             **({"volumeMounts": volume_mounts} if volume_mounts else {}),
@@ -188,6 +193,7 @@ def build_manual_run_job(
     owner_kind: str = "Playbook",
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
+    image_digest: str | None = None,
 ) -> dict[str, Any]:
     """Render a Job manifest for manual Playbook execution.
 
@@ -197,6 +203,10 @@ def build_manual_run_job(
     secrets_cfg = playbook_spec.get("secrets") or {}
     vault_password_secret_ref = secrets_cfg.get("vaultPasswordSecretRef")
     image: str = runtime.get("image") or image_default
+
+    # Apply digest pinning if provided and image doesn't already have a digest
+    if image_digest and "@" not in image:
+        image = f"{image.split(':')[0]}@{image_digest}"
 
     # Build environment variables from secret mappings
     env_list: list[dict[str, Any]] = []

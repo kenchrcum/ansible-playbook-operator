@@ -27,7 +27,7 @@ spec:
         runAsGroup: 1000
       containers:
         - name: operator
-          image: {{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag }}
+          image: {{ .Values.operator.image.repository }}{{ if .Values.operator.image.digest }}@{{ .Values.operator.image.digest }}{{ else }}:{{ .Values.operator.image.tag }}{{ end }}
           imagePullPolicy: {{ .Values.operator.image.pullPolicy }}
           command: ["/bin/sh", "-c"]
           args:

@@ -26,6 +26,7 @@ def build_cronjob(
     owner_kind: str = "Schedule",
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
+    image_digest: str | None = None,
 ) -> dict[str, Any]:
     """Render a CronJob manifest from Playbook and Schedule specs.
 
@@ -36,6 +37,10 @@ def build_cronjob(
     secrets_cfg = spec.get("secrets") or {}
     vault_password_secret_ref = secrets_cfg.get("vaultPasswordSecretRef")
     image: str = runtime.get("image") or image_default
+
+    # Apply digest pinning if provided and image doesn't already have a digest
+    if image_digest and "@" not in image:
+        image = f"{image.split(':')[0]}@{image_digest}"
 
     resources: dict[str, Any] = schedule_spec.get("resources") or {}
     backoff_limit: int | None = schedule_spec.get("backoffLimit")

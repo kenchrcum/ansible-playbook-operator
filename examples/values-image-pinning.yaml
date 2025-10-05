@@ -1,0 +1,55 @@
+# Example Helm values demonstrating image pinning configuration
+# This file shows how to configure the operator with digest-pinned images
+
+# Operator image configuration with digest pinning
+operator:
+  image:
+    repository: kenchrcum/ansible-playbook-operator
+    tag: "0.1.0"
+    # Pin to specific digest for enhanced security and reproducibility
+    # When digest is provided, it takes precedence over tag
+    digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  leaderElection: true
+  watch:
+    scope: namespace
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: true
+  serviceAccount:
+    create: true
+    name: ""
+
+# Default executor image configuration with digest pinning
+executorDefaults:
+  image:
+    repository: kenchrcum/ansible-runner
+    tag: latest
+    # Pin to specific digest for enhanced security and reproducibility
+    # When digest is provided, it takes precedence over tag
+    digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    pullPolicy: IfNotPresent
+  cache:
+    strategy: none
+    pvcName: ""
+    createPVC: false
+    storageSize: "10Gi"
+    storageClassName: ""
+
+# RBAC configuration
+rbac:
+  preset: minimal
+  clusterRead: true
+
+# Usage:
+# helm install ansible-operator ./helm/ansible-playbook-operator \
+#   --values examples/values-image-pinning.yaml \
+#   --namespace ansible-operator-system

@@ -2,6 +2,10 @@ operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
     tag: "0.1.0"
+    # Optional: pin image by digest for enhanced security and reproducibility
+    # When digest is provided, it takes precedence over tag
+    # Format: sha256:abc123def456...
+    digest: ""
     pullPolicy: IfNotPresent
   resources:
     requests:
@@ -26,6 +30,10 @@ executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
     tag: latest
+    # Optional: pin image by digest for enhanced security and reproducibility
+    # When digest is provided, it takes precedence over tag
+    # Format: sha256:abc123def456...
+    digest: ""
     pullPolicy: IfNotPresent
   cache:
     # Default cache strategy for repositories that don't specify one

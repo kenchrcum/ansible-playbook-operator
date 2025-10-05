@@ -35,7 +35,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [ ] Executor identity: support separate ServiceAccount for executor Jobs, templated in Helm, with minimal permissions for target scenarios.
 - [ ] Secret access: restrict Secret reads to referenced names (use `resourceNames` where feasible) and document limitations.
 - [ ] NetworkPolicies: optional egress restrictions to Git endpoints and required registries; example presets in chart values.
-- [ ] Image pinning: pin operator and default executor images by digest for releases and CI; document upgrade flow.
+- [x] Image pinning: pin operator and default executor images by digest for releases and CI; document upgrade flow.
 
 ### Helm Chart Improvements
 - [x] Values layout: complete split between `operator.*`, `executorDefaults.*`, and `rbac.*`; document all fields with sane defaults.
