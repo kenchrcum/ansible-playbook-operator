@@ -6,7 +6,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Repository: implement connectivity probe Job (e.g., `git ls-remote`) with SSA; mount typed auth and optional `known_hosts` when `ssh.strictHostKeyChecking=true`.
 - [x] Repository: set and maintain Conditions `AuthValid`, `CloneReady`, and derived `Ready`; emit `ValidateSucceeded`/`ValidateFailed` events with concise reasons.
 - [x] Repository: add finalizer `ansible.cloud37.dev/finalizer` and clean up probe artifacts on delete.
-- [ ] Playbook: validate references and paths (exists relative to repo: playbook, inventory, optional `ansible.cfg`), surface `InvalidPath` or `RepoNotReady` conditions.
+- [x] Playbook: validate references and paths (exists relative to repo: playbook, inventory, optional `ansible.cfg`), surface `InvalidPath` or `RepoNotReady` conditions.
 - [ ] Schedule: adopt existing CronJobs safely (owner/labels match or UID annotation) and reconcile via SSA to patch only operator-owned fields.
 - [ ] Schedule: update `status.lastRunTime`, `status.nextRunTime`, `status.lastJobRef`, `status.lastRunRevision` from observed CronJob/Job.
 - [ ] Schedule: set Conditions (`Ready`, `BlockedByConcurrency`) according to observed state and `concurrencyPolicy`.

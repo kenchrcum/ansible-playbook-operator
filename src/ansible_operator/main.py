@@ -13,6 +13,7 @@ from . import metrics
 from .builders.cronjob_builder import build_cronjob
 from .builders.job_builder import build_connectivity_probe_job
 from .constants import API_GROUP, API_GROUP_VERSION, COND_READY
+from .services.git import GitService
 from .utils.schedule import compute_computed_schedule
 
 FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
@@ -532,16 +533,120 @@ def reconcile_playbook(
             )
             return
 
-        # In later phases, verify repo readiness and paths; for now mark unknown
+        # Validate playbook path is specified
+        playbook_path = (spec or {}).get("playbookPath")
+        if not playbook_path:
+            _update_condition(
+                patch.status,
+                COND_READY,
+                "False",
+                "InvalidPath",
+                "spec.playbookPath must be set",
+            )
+            _emit_event(
+                kind="Playbook",
+                namespace=namespace,
+                name=name,
+                reason="ValidateFailed",
+                message="spec.playbookPath must be set",
+                type_="Warning",
+            )
+            return
+
+        # Check repository readiness
+        git_service = GitService()
+        repo_name = repo_ref.get("name")
+        repo_namespace = repo_ref.get("namespace", namespace)
+
+        is_repo_ready, repo_error = git_service.check_repository_readiness(
+            str(repo_name), repo_namespace
+        )
+        if not is_repo_ready:
+            _update_condition(
+                patch.status,
+                COND_READY,
+                "False",
+                "RepoNotReady",
+                repo_error,
+            )
+            _emit_event(
+                kind="Playbook",
+                namespace=namespace,
+                name=name,
+                reason="ValidateFailed",
+                message=f"Repository not ready: {repo_error}",
+                type_="Warning",
+            )
+            return
+
+        # Get repository spec for path validation
+        try:
+            custom_api = client.CustomObjectsApi()
+            repository = custom_api.get_namespaced_custom_object(
+                group="ansible.cloud37.dev",
+                version="v1alpha1",
+                namespace=repo_namespace,
+                plural="repositories",
+                name=repo_name,
+            )
+            repo_spec = repository.get("spec", {})
+        except client.exceptions.ApiException as e:
+            if e.status == 404:
+                _update_condition(
+                    patch.status,
+                    COND_READY,
+                    "False",
+                    "RepoNotReady",
+                    f"Repository {repo_name} not found",
+                )
+                _emit_event(
+                    kind="Playbook",
+                    namespace=namespace,
+                    name=name,
+                    reason="ValidateFailed",
+                    message=f"Repository {repo_name} not found",
+                    type_="Warning",
+                )
+                return
+            else:
+                raise
+
+        # Validate paths exist in repository
+        is_valid, validation_error = git_service.validate_repository_paths(
+            repo_spec, spec, repo_namespace
+        )
+        if not is_valid:
+            _update_condition(
+                patch.status,
+                COND_READY,
+                "False",
+                "InvalidPath",
+                validation_error,
+            )
+            _emit_event(
+                kind="Playbook",
+                namespace=namespace,
+                name=name,
+                reason="ValidateFailed",
+                message=f"Path validation failed: {validation_error}",
+                type_="Warning",
+            )
+            return
+
+        # All validations passed
         _update_condition(
-            patch.status, COND_READY, "Unknown", "Deferred", "Awaiting repository validation"
+            patch.status,
+            COND_READY,
+            "True",
+            "Validated",
+            "Playbook paths and repository validated successfully",
         )
         _emit_event(
             kind="Playbook",
             namespace=namespace,
             name=name,
             reason="ValidateSucceeded",
-            message="Playbook spec minimally validated",
+            message="Playbook validation completed successfully",
         )
 
         structured_logging.logger.info(
