@@ -42,6 +42,14 @@ spec:
               type: string
             metadata:
               type: object
+              properties:
+                finalizers:
+                  type: array
+                  items:
+                    type: string
+                  x-kubernetes-validations:
+                    - rule: "self.all(x, x.startsWith('ansible.cloud37.dev/'))"
+                      message: "finalizers must be prefixed with ansible.cloud37.dev/"
             spec:
               type: object
               required: [url]

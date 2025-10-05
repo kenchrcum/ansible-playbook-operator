@@ -3,7 +3,7 @@
 This backlog captures missing or incomplete work to reach the goals in `architecture/development-plan.md`. Items are grouped by area and written as actionable tasks. Security defaults and least-privilege RBAC are expected across all items.
 
 ### Controllers and Reconciliation
-- [ ] Repository: implement connectivity probe Job (e.g., `git ls-remote`) with SSA; mount typed auth and optional `known_hosts` when `ssh.strictHostKeyChecking=true`.
+- [x] Repository: implement connectivity probe Job (e.g., `git ls-remote`) with SSA; mount typed auth and optional `known_hosts` when `ssh.strictHostKeyChecking=true`.
 - [ ] Repository: set and maintain Conditions `AuthValid`, `CloneReady`, and derived `Ready`; emit `ValidateSucceeded`/`ValidateFailed` events with concise reasons.
 - [ ] Repository: add finalizer `ansible.cloud37.dev/finalizer` and clean up probe artifacts on delete.
 - [ ] Playbook: validate references and paths (exists relative to repo: playbook, inventory, optional `ansible.cfg`), surface `InvalidPath` or `RepoNotReady` conditions.

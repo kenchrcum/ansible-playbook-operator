@@ -10,8 +10,11 @@ from prometheus_client import start_http_server
 
 from . import metrics
 from .builders.cronjob_builder import build_cronjob
+from .builders.job_builder import build_connectivity_probe_job
 from .constants import API_GROUP, API_GROUP_VERSION, COND_READY
 from .utils.schedule import compute_computed_schedule
+
+FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
 
 
 @kopf.on.startup()
@@ -92,10 +95,38 @@ def reconcile_repository(
     patch: kopf.Patch,
     name: str,
     namespace: str,
+    uid: str,
+    meta: kopf.Meta,
     **_: Any,
 ) -> None:
     started_at = monotonic()
     try:
+        # Handle finalizers
+        if meta.get("deletionTimestamp"):
+            # Repository is being deleted
+            if FINALIZER_REPOSITORY in (meta.get("finalizers") or []):
+                # Clean up probe jobs
+                batch_api = client.BatchV1Api()
+                job_name = f"{name}-probe"
+                try:
+                    batch_api.delete_namespaced_job(
+                        name=job_name,
+                        namespace=namespace,
+                        propagation_policy="Background",
+                    )
+                except client.exceptions.ApiException as e:
+                    if e.status != 404:
+                        # Log but don't fail deletion
+                        pass
+
+                # Remove finalizer
+                patch.meta.remove(["finalizers"], FINALIZER_REPOSITORY)
+            return
+
+        # Add finalizer if not present
+        if FINALIZER_REPOSITORY not in (meta.get("finalizers") or []):
+            patch.meta.append(["finalizers"], FINALIZER_REPOSITORY)
+
         # Minimal validation; deeper checks will be added later
         url = (spec or {}).get("url")
         if not url:
@@ -139,29 +170,200 @@ def reconcile_repository(
             )
             return
 
-        # For now, mark as unknown until probe is implemented
-        _update_condition(
-            patch.status, "AuthValid", "Unknown", "Deferred", "Connectivity not yet probed"
-        )
-        _update_condition(
-            patch.status, "CloneReady", "Unknown", "Deferred", "Clone not yet attempted"
-        )
-        _update_condition(
-            patch.status, COND_READY, "Unknown", "Deferred", "Repository not yet verified"
-        )
-        _emit_event(
-            kind="Repository",
+        # Check if known_hosts ConfigMap exists when strictHostKeyChecking is enabled
+        ssh_cfg = (spec or {}).get("ssh") or {}
+        known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
+        strict_host_key = ssh_cfg.get("strictHostKeyChecking", True)
+        if strict_host_key and known_hosts_cm:
+            try:
+                v1 = client.CoreV1Api()
+                v1.read_namespaced_config_map(known_hosts_cm, namespace)
+            except client.exceptions.ApiException as e:
+                if e.status == 404:
+                    _update_condition(
+                        patch.status,
+                        "AuthValid",
+                        "False",
+                        "ConfigMapNotFound",
+                        f"SSH known hosts ConfigMap '{known_hosts_cm}' not found",
+                    )
+                    _update_condition(
+                        patch.status, COND_READY, "False", "InvalidSpec", "Repository auth invalid"
+                    )
+                    _emit_event(
+                        kind="Repository",
+                        namespace=namespace,
+                        name=name,
+                        reason="ValidateFailed",
+                        message=f"SSH known hosts ConfigMap '{known_hosts_cm}' not found",
+                        type_="Warning",
+                    )
+                    return
+
+        # Build and apply connectivity probe Job
+        job_manifest = build_connectivity_probe_job(
+            repository_name=name,
             namespace=namespace,
-            name=name,
-            reason="ValidateSucceeded",
-            message="Repository spec minimally validated",
+            repository_spec=spec,
+            owner_uid=uid,
         )
+
+        batch_api = client.BatchV1Api()
+        job_name = f"{name}-probe"
+
+        # Create or patch the probe job
+        try:
+            batch_api.create_namespaced_job(
+                namespace=namespace,
+                body=job_manifest,
+                field_manager="ansible-operator",
+            )
+        except client.exceptions.ApiException as e:
+            if e.status == 409:
+                # Job already exists; patch it
+                batch_api.patch_namespaced_job(
+                    name=job_name,
+                    namespace=namespace,
+                    body=job_manifest,
+                    field_manager="ansible-operator",
+                )
+            else:
+                raise
+
+        # Set conditions to indicate probe is running
+        # (status will be updated by job completion handler)
+        _update_condition(
+            patch.status, "AuthValid", "Unknown", "ProbeRunning", "Connectivity probe in progress"
+        )
+        _update_condition(
+            patch.status, "CloneReady", "Unknown", "Deferred", "Waiting for connectivity probe"
+        )
+        _update_condition(
+            patch.status, COND_READY, "Unknown", "Deferred", "Repository connectivity being probed"
+        )
+
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="success").inc()
     except Exception:
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="error").inc()
         raise
     finally:
         metrics.RECONCILE_DURATION.labels(kind="Repository").observe(monotonic() - started_at)
+
+
+@kopf.on.event("batch", "v1", "jobs")
+def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
+    """Handle Job completion events to update Repository status."""
+    job = event.get("object", {})
+    metadata = job.get("metadata", {})
+    labels = metadata.get("labels", {})
+
+    # Only handle connectivity probe jobs
+    if labels.get("ansible.cloud37.dev/probe-type") != "connectivity":
+        return
+
+    job_name = metadata.get("name", "")
+    namespace = metadata.get("namespace", "")
+
+    # Extract repository name from job name (format: {repo-name}-probe)
+    if not job_name.endswith("-probe"):
+        return
+    repository_name = job_name[:-6]  # Remove "-probe" suffix
+
+    # Get repository owner reference to find the repository
+    owner_refs = metadata.get("ownerReferences", [])
+    if not owner_refs:
+        return
+
+    owner_ref = owner_refs[0]  # Should be the Repository
+    if owner_ref.get("kind") != "Repository" or owner_ref.get("apiVersion") != API_GROUP_VERSION:
+        return
+
+    # Get current repository status
+    api = client.CustomObjectsApi()
+    try:
+        api.get_namespaced_custom_object(
+            group=API_GROUP,
+            version="v1alpha1",
+            namespace=namespace,
+            plural="repositories",
+            name=repository_name,
+        )
+    except client.exceptions.ApiException:
+        # Repository might have been deleted
+        return
+
+    # Check job status
+    status = job.get("status", {})
+    succeeded = status.get("succeeded", 0)
+    failed = status.get("failed", 0)
+
+    # Update repository status based on job completion
+    patch_body: dict[str, Any] = {"status": {}}
+
+    if succeeded > 0:
+        _update_condition(
+            patch_body["status"],
+            "AuthValid",
+            "True",
+            "ProbeSucceeded",
+            "Connectivity probe successful",
+        )
+        _update_condition(
+            patch_body["status"], "CloneReady", "Unknown", "Deferred", "Clone not yet attempted"
+        )
+        _update_condition(
+            patch_body["status"],
+            COND_READY,
+            "Unknown",
+            "Deferred",
+            "Repository connectivity verified",
+        )
+        _emit_event(
+            kind="Repository",
+            namespace=namespace,
+            name=repository_name,
+            reason="ValidateSucceeded",
+            message="Repository connectivity verified",
+        )
+    elif failed > 0:
+        _update_condition(
+            patch_body["status"], "AuthValid", "False", "ProbeFailed", "Connectivity probe failed"
+        )
+        _update_condition(
+            patch_body["status"],
+            "CloneReady",
+            "False",
+            "ProbeFailed",
+            "Cannot attempt clone without connectivity",
+        )
+        _update_condition(
+            patch_body["status"],
+            COND_READY,
+            "False",
+            "ProbeFailed",
+            "Repository connectivity check failed",
+        )
+        _emit_event(
+            kind="Repository",
+            namespace=namespace,
+            name=repository_name,
+            reason="ValidateFailed",
+            message="Repository connectivity check failed",
+            type_="Warning",
+        )
+
+    # Apply the status update
+    if patch_body["status"]:
+        with suppress(Exception):
+            api.patch_namespaced_custom_object_status(
+                group=API_GROUP,
+                version="v1alpha1",
+                namespace=namespace,
+                plural="repositories",
+                name=repository_name,
+                body=patch_body,
+                field_manager="ansible-operator",
+            )
 
 
 @kopf.on.create(API_GROUP_VERSION, "playbooks")
