@@ -132,12 +132,17 @@ def reconcile_repository(
                         pass
 
                 # Remove finalizer
-                patch.meta.remove(["finalizers"], FINALIZER_REPOSITORY)
+                finalizers = meta.get("finalizers", [])
+                if FINALIZER_REPOSITORY in finalizers:
+                    finalizers.remove(FINALIZER_REPOSITORY)
+                    patch.meta["finalizers"] = finalizers
             return
 
         # Add finalizer if not present
         if FINALIZER_REPOSITORY not in (meta.get("finalizers") or []):
-            patch.meta.append(["finalizers"], FINALIZER_REPOSITORY)
+            finalizers = meta.get("finalizers", [])
+            finalizers.append(FINALIZER_REPOSITORY)
+            patch.meta["finalizers"] = finalizers
 
         # Minimal validation; deeper checks will be added later
         url = (spec or {}).get("url")

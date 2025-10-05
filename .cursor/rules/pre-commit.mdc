@@ -12,7 +12,7 @@ Always run tests using the virtual environment:
 ```bash
 git add .
 source .venv/bin/activate
-pytest pre-commit run --all-files
+pre-commit run --all-files
 ```
 
 ## Required Local Workflow

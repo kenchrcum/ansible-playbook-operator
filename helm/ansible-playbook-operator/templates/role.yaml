@@ -28,7 +28,10 @@ rules:
 {{- else }}
   # Minimal preset (default): least-privilege namespaced permissions
   - apiGroups: [""]
-    resources: ["events", "pods", "pods/log"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: [""]
+    resources: ["pods", "pods/log"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
     resources: ["secrets"]
