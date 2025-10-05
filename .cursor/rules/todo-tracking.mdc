@@ -19,5 +19,6 @@ description: "Task tracking discipline: reconcile TODOs and mark processed items
   - Mark tasks as completed in `architecture/TODO.md` with `[x]` format.
   - Provide a brief, high-signal summary of changes (no process narration).
   - Run pre-commit checks and ensure all tests pass before marking complete.
+  - **Commit all changes** with descriptive conventional commit message.
 
 - Do not leave stale TODOs; the list must reflect current reality at all times.

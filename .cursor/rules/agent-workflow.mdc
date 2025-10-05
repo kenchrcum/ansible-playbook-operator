@@ -1,0 +1,45 @@
+---
+alwaysApply: true
+description: "Agent workflow expectations: commit changes, track progress, follow project standards."
+---
+# Agent Workflow Expectations
+
+## Commit Requirements
+- **Always commit changes** when completing tasks or making meaningful progress
+- Use conventional commit format: `type: description`
+- Include detailed commit body for significant features or changes
+- Reference completed TODO items when appropriate
+- Run pre-commit checks before committing: `source .venv/bin/activate && pre-commit run --all-files`
+
+## Task Completion Workflow
+1. Implement the requested changes
+2. Update relevant tests and documentation
+3. Run tests and pre-commit checks
+4. Update TODO list with completed items
+5. **Commit all changes** with descriptive message
+6. Provide brief summary of what was accomplished
+
+## Commit Message Examples
+- `feat: add comprehensive Ansible execution options to Playbook CRD`
+- `fix: remove invalid metadata properties from Repository CRD`
+- `docs: update Cursor Rules with Ansible execution capabilities`
+- `test: add unit tests for new CLI options and execution capabilities`
+
+## Progress Tracking
+- Use TODO lists to track work progress
+- Mark tasks as `completed` when finished
+- Update `architecture/TODO.md` with `[x]` format
+- Don't leave work uncommitted at session end
+
+## Quality Standards
+- All code changes must pass pre-commit checks
+- Tests must pass before committing
+- Follow project coding standards and conventions
+- Include appropriate documentation updates
+- Maintain backward compatibility where possible
+
+## Session Completion
+- Commit all changes before ending session
+- Provide clear summary of accomplishments
+- Ensure TODO list reflects current state
+- Leave repository in clean, committable state
