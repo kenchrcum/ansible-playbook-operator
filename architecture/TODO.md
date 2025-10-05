@@ -26,8 +26,8 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 
 ### Observability
 - [x] Logging: structured JSON logs with `controller`, `resource`, `uid`, `runId`, `event`, `reason`; never log secrets.
-- [ ] Metrics: add workqueue depth, Job runs total and duration histograms; expose via existing metrics Service.
-- [ ] Events: standardize event reasons across lifecycle (ReconcileStarted/Failed, CronJobCreated/Patched/Adopted, JobCreated/Succeeded/Failed, CleanupSucceeded/Failed).
+- [x] Metrics: add workqueue depth, Job runs total and duration histograms; expose via existing metrics Service.
+- [x] Events: standardize event reasons across lifecycle (ReconcileStarted/Failed, CronJobCreated/Patched/Adopted, JobCreated/Succeeded/Failed, CleanupSucceeded/Failed).
 
 ### RBAC and Security
 - [ ] Helm RBAC presets: implement `rbac.preset` values `minimal` (default), `scoped`, `cluster-admin` with clear, least-privilege rules.

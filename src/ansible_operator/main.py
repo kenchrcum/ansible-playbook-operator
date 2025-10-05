@@ -290,6 +290,7 @@ def reconcile_repository(
     **_: Any,
 ) -> None:
     started_at = monotonic()
+    metrics.RECONCILE_TOTAL.labels(kind="Repository", result="started").inc()
     try:
         structured_logging.logger.info(
             "Starting repository reconciliation",
@@ -534,6 +535,7 @@ def reconcile_repository(
             reason="ReconcileSucceeded",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="success").inc()
+        metrics.RECONCILE_DURATION.labels(kind="Repository").observe(monotonic() - started_at)
     except Exception as e:
         structured_logging.logger.error(
             f"Repository reconciliation failed: {str(e)}",
@@ -544,9 +546,8 @@ def reconcile_repository(
             reason="ReconcileFailed",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Repository", result="error").inc()
-        raise
-    finally:
         metrics.RECONCILE_DURATION.labels(kind="Repository").observe(monotonic() - started_at)
+        raise
 
 
 @kopf.on.event("batch", "v1", "jobs")
@@ -600,6 +601,19 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
     patch_body: dict[str, Any] = {"status": {}}
 
     if succeeded > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Repository", result="success").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            # Parse ISO timestamps and calculate duration
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Repository").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
         structured_logging.logger.info(
             "Repository connectivity probe succeeded",
             controller="Repository",
@@ -633,6 +647,19 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
             message="Repository connectivity and clone capability verified",
         )
     elif failed > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Repository", result="failure").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            # Parse ISO timestamps and calculate duration
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Repository").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
         structured_logging.logger.warning(
             "Repository connectivity probe failed",
             controller="Repository",
@@ -718,11 +745,35 @@ def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
 
     # Determine final status
     if succeeded > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Playbook", result="success").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Playbook").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
         final_status = "Succeeded"
         reason = "JobSucceeded"
         message = "Manual run completed successfully"
         event_type = "Normal"
     elif failed > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Playbook", result="failure").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Playbook").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
         final_status = "Failed"
         reason = "JobFailed"
         message = "Manual run failed"
@@ -748,7 +799,7 @@ def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
         kind="Playbook",
         namespace=namespace,
         name=playbook_name,
-        reason=f"ManualRun{final_status}",
+        reason=f"Job{final_status}",
         message=f"Manual run Job '{job_name}' {final_status.lower()}: {message}",
         type_=event_type,
     )
@@ -779,6 +830,7 @@ def reconcile_playbook(
     **_: Any,
 ) -> None:
     started_at = monotonic()
+    metrics.RECONCILE_TOTAL.labels(kind="Playbook", result="started").inc()
     try:
         structured_logging.logger.info(
             "Starting playbook reconciliation",
@@ -976,7 +1028,7 @@ def reconcile_playbook(
                     run_id=run_id,
                     job_name=job_name,
                     status="Running",
-                    reason="ManualRunStarted",
+                    reason="JobCreated",
                     message=f"Manual run Job '{job_name}' created",
                 )
 
@@ -988,7 +1040,7 @@ def reconcile_playbook(
                     kind="Playbook",
                     namespace=namespace,
                     name=name,
-                    reason="ManualRunStarted",
+                    reason="JobCreated",
                     message=f"Manual run Job '{job_name}' created with run ID '{run_id}'",
                 )
 
@@ -1009,7 +1061,7 @@ def reconcile_playbook(
                     resource=f"{namespace}/{name}",
                     uid=uid,
                     event="manual-run",
-                    reason="JobCreationFailed",
+                    reason="JobFailed",
                     run_id=run_id,
                     error=str(e),
                 )
@@ -1021,7 +1073,7 @@ def reconcile_playbook(
                     run_id=run_id,
                     job_name="",
                     status="Failed",
-                    reason="JobCreationFailed",
+                    reason="JobFailed",
                     message=f"Failed to create manual run Job: {str(e)}",
                 )
 
@@ -1033,7 +1085,7 @@ def reconcile_playbook(
                     kind="Playbook",
                     namespace=namespace,
                     name=name,
-                    reason="ManualRunFailed",
+                    reason="JobFailed",
                     message=f"Failed to create manual run Job: {str(e)}",
                     type_="Warning",
                 )
@@ -1051,6 +1103,7 @@ def reconcile_playbook(
             reason="ReconcileSucceeded",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Playbook", result="success").inc()
+        metrics.RECONCILE_DURATION.labels(kind="Playbook").observe(monotonic() - started_at)
     except Exception as e:
         structured_logging.logger.error(
             f"Playbook reconciliation failed: {str(e)}",
@@ -1061,9 +1114,8 @@ def reconcile_playbook(
             reason="ReconcileFailed",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Playbook", result="error").inc()
-        raise
-    finally:
         metrics.RECONCILE_DURATION.labels(kind="Playbook").observe(monotonic() - started_at)
+        raise
 
 
 @kopf.on.create(API_GROUP_VERSION, "schedules")
@@ -1079,6 +1131,7 @@ def reconcile_schedule(
     **_: Any,
 ) -> None:
     started_at = monotonic()
+    metrics.RECONCILE_TOTAL.labels(kind="Schedule", result="started").inc()
     try:
         structured_logging.logger.info(
             "Starting schedule reconciliation",
@@ -1349,6 +1402,7 @@ def reconcile_schedule(
             reason="ReconcileSucceeded",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Schedule", result="success").inc()
+        metrics.RECONCILE_DURATION.labels(kind="Schedule").observe(monotonic() - started_at)
     except Exception as e:
         structured_logging.logger.error(
             f"Schedule reconciliation failed: {str(e)}",
@@ -1359,9 +1413,8 @@ def reconcile_schedule(
             reason="ReconcileFailed",
         )
         metrics.RECONCILE_TOTAL.labels(kind="Schedule", result="error").inc()
-        raise
-    finally:
         metrics.RECONCILE_DURATION.labels(kind="Schedule").observe(monotonic() - started_at)
+        raise
 
 
 @kopf.on.event("batch", "v1", "cronjobs")
@@ -1480,9 +1533,39 @@ def handle_schedule_job_event(event: dict[str, Any], **_: Any) -> None:
     # Get Job status
     status = job.get("status", {})
     job_name = metadata.get("name", "")
+    succeeded = status.get("succeeded", 0)
+    failed = status.get("failed", 0)
 
     # Update Schedule status with Job reference
     patch_body: dict[str, Any] = {"status": {}}
+
+    # Record job run metrics
+    if succeeded > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Schedule", result="success").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Schedule").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
+    elif failed > 0:
+        metrics.JOB_RUNS_TOTAL.labels(kind="Schedule", result="failure").inc()
+        # Record job duration
+        start_time = status.get("startTime")
+        completion_time = status.get("completionTime")
+        if start_time and completion_time:
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                duration_seconds = (completion_dt - start_dt).total_seconds()
+                metrics.JOB_RUN_DURATION.labels(kind="Schedule").observe(duration_seconds)
+            except Exception:
+                pass  # Ignore parsing errors
 
     # Update lastJobRef
     if job_name:

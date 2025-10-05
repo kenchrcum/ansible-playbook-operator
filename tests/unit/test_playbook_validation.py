@@ -27,6 +27,12 @@ class TestPlaybookValidation:
         status: dict[str, Any] = {}
         mock_patch = MockPatch()
 
+        # Create meta mock that returns None for deletionTimestamp
+        meta_mock = MagicMock()
+        meta_mock.get.side_effect = lambda key, default=None: (
+            None if key == "deletionTimestamp" else MagicMock()
+        )
+
         # Mock the event emission to capture calls
         with patch("ansible_operator.main._emit_event") as mock_emit:
             reconcile_playbook(
@@ -36,6 +42,7 @@ class TestPlaybookValidation:
                 name="test-playbook",
                 namespace="default",
                 uid="uid-123",
+                meta=meta_mock,
             )
 
         # Check conditions were set in mock_patch.status
@@ -68,6 +75,12 @@ class TestPlaybookValidation:
         status: dict[str, Any] = {}
         mock_patch = MockPatch()
 
+        # Create meta mock that returns None for deletionTimestamp
+        meta_mock = MagicMock()
+        meta_mock.get.side_effect = lambda key, default=None: (
+            None if key == "deletionTimestamp" else MagicMock()
+        )
+
         # Mock the event emission to capture calls
         with patch("ansible_operator.main._emit_event") as mock_emit:
             reconcile_playbook(
@@ -77,6 +90,7 @@ class TestPlaybookValidation:
                 name="test-playbook",
                 namespace="default",
                 uid="uid-123",
+                meta=meta_mock,
             )
 
         # Check conditions were set in mock_patch.status
@@ -119,6 +133,13 @@ class TestPlaybookValidation:
             )
             mock_git_service_class.return_value = mock_git_service
 
+            # Create meta mock that returns None for deletionTimestamp
+            meta_mock = MagicMock()
+            meta_mock.get.side_effect = lambda key, default=None: (
+                None if key == "deletionTimestamp" else MagicMock()
+            )
+            meta_mock.annotations = {}
+
             # Mock the event emission to capture calls
             with patch("ansible_operator.main._emit_event") as mock_emit:
                 reconcile_playbook(
@@ -128,6 +149,7 @@ class TestPlaybookValidation:
                     name="test-playbook",
                     namespace="default",
                     uid="uid-123",
+                    meta=meta_mock,
                 )
 
         # Check conditions were set in mock_patch.status
@@ -175,6 +197,12 @@ class TestPlaybookValidation:
                 )
                 mock_api_class.return_value = mock_api
 
+                # Create meta mock that returns None for deletionTimestamp
+                meta_mock = MagicMock()
+                meta_mock.get.side_effect = lambda key, default=None: (
+                    None if key == "deletionTimestamp" else MagicMock()
+                )
+
                 # Mock the event emission to capture calls
                 with patch("ansible_operator.main._emit_event") as mock_emit:
                     reconcile_playbook(
@@ -184,6 +212,7 @@ class TestPlaybookValidation:
                         name="test-playbook",
                         namespace="default",
                         uid="uid-123",
+                        meta=meta_mock,
                     )
 
         # Check conditions were set in mock_patch.status
@@ -235,6 +264,12 @@ class TestPlaybookValidation:
                 }
                 mock_api_class.return_value = mock_api
 
+                # Create meta mock that returns None for deletionTimestamp
+                meta_mock = MagicMock()
+                meta_mock.get.side_effect = lambda key, default=None: (
+                    None if key == "deletionTimestamp" else MagicMock()
+                )
+
                 # Mock the event emission to capture calls
                 with patch("ansible_operator.main._emit_event") as mock_emit:
                     reconcile_playbook(
@@ -244,6 +279,7 @@ class TestPlaybookValidation:
                         name="test-playbook",
                         namespace="default",
                         uid="uid-123",
+                        meta=meta_mock,
                     )
 
         # Check conditions were set in mock_patch.status
@@ -278,30 +314,59 @@ class TestPlaybookValidation:
         mock_patch = MockPatch()
 
         # Mock GitService to return repository ready and paths valid
-        with patch("ansible_operator.main.GitService") as mock_git_service_class:
+        with (
+            patch("ansible_operator.main.GitService") as mock_git_service_class,
+            patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
+            patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
+            patch(
+                "ansible_operator.services.dependencies.DependencyService"
+            ) as mock_dependency_service_class,
+            patch(
+                "ansible_operator.services.manual_run.ManualRunService"
+            ) as mock_manual_run_service_class,
+        ):
+
             mock_git_service = MagicMock()
             mock_git_service.check_repository_readiness.return_value = (True, "")
             mock_git_service.validate_repository_paths.return_value = (True, "")
             mock_git_service_class.return_value = mock_git_service
 
-            # Mock Kubernetes API to return repository
-            with patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class:
-                mock_api = MagicMock()
-                mock_api.get_namespaced_custom_object.return_value = {
-                    "spec": {"url": "https://github.com/test/repo.git"}
-                }
-                mock_api_class.return_value = mock_api
+            mock_api = MagicMock()
+            mock_api.get_namespaced_custom_object.return_value = {
+                "spec": {"url": "https://github.com/test/repo.git"}
+            }
+            mock_api_class.return_value = mock_api
 
-                # Mock the event emission to capture calls
-                with patch("ansible_operator.main._emit_event") as mock_emit:
-                    reconcile_playbook(
-                        spec=spec,
-                        status=status,
-                        patch=mock_patch,
-                        name="test-playbook",
-                        namespace="default",
-                        uid="uid-123",
-                    )
+            mock_batch_api = MagicMock()
+            mock_batch_api_class.return_value = mock_batch_api
+
+            mock_dependency_service = MagicMock()
+            mock_dependency_service_class.return_value = mock_dependency_service
+            mock_dependency_service.index_playbook_dependencies.return_value = None
+            mock_dependency_service.requeue_dependent_schedules.return_value = None
+
+            mock_manual_run_service = MagicMock()
+            mock_manual_run_service_class.return_value = mock_manual_run_service
+            mock_manual_run_service.detect_manual_run_request.return_value = None
+
+            # Create meta mock that returns None for deletionTimestamp
+            meta_mock = MagicMock()
+            meta_mock.get.side_effect = lambda key, default=None: (
+                None if key == "deletionTimestamp" else MagicMock()
+            )
+            meta_mock.annotations = {}
+
+            # Mock the event emission to capture calls
+            with patch("ansible_operator.main._emit_event") as mock_emit:
+                reconcile_playbook(
+                    spec=spec,
+                    status=status,
+                    patch=mock_patch,
+                    name="test-playbook",
+                    namespace="default",
+                    uid="uid-123",
+                    meta=meta_mock,
+                )
 
         # Check conditions were set in mock_patch.status
         conditions = mock_patch.status.get("conditions", [])
@@ -315,8 +380,8 @@ class TestPlaybookValidation:
             "message": "Playbook paths and repository validated successfully",
         }
 
-        # Check event was emitted
-        mock_emit.assert_called_once_with(
+        # Check ValidateSucceeded event was emitted
+        mock_emit.assert_any_call(
             kind="Playbook",
             namespace="default",
             name="test-playbook",
@@ -334,33 +399,62 @@ class TestPlaybookValidation:
         mock_patch = MockPatch()
 
         # Mock GitService to return repository ready and paths valid
-        with patch("ansible_operator.main.GitService") as mock_git_service_class:
+        with (
+            patch("ansible_operator.main.GitService") as mock_git_service_class,
+            patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
+            patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
+            patch(
+                "ansible_operator.services.dependencies.DependencyService"
+            ) as mock_dependency_service_class,
+            patch(
+                "ansible_operator.services.manual_run.ManualRunService"
+            ) as mock_manual_run_service_class,
+        ):
+
             mock_git_service = MagicMock()
             mock_git_service.check_repository_readiness.return_value = (True, "")
             mock_git_service.validate_repository_paths.return_value = (True, "")
             mock_git_service_class.return_value = mock_git_service
 
-            # Mock Kubernetes API to return repository
-            with patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class:
-                mock_api = MagicMock()
-                mock_api.get_namespaced_custom_object.return_value = {
-                    "spec": {"url": "https://github.com/test/repo.git"}
-                }
-                mock_api_class.return_value = mock_api
+            mock_api = MagicMock()
+            mock_api.get_namespaced_custom_object.return_value = {
+                "spec": {"url": "https://github.com/test/repo.git"}
+            }
+            mock_api_class.return_value = mock_api
 
-                # Mock the event emission to capture calls
-                with patch("ansible_operator.main._emit_event") as mock_emit:
-                    reconcile_playbook(
-                        spec=spec,
-                        status=status,
-                        patch=mock_patch,
-                        name="test-playbook",
-                        namespace="default",
-                        uid="uid-123",
-                    )
+            mock_batch_api = MagicMock()
+            mock_batch_api_class.return_value = mock_batch_api
+
+            mock_dependency_service = MagicMock()
+            mock_dependency_service_class.return_value = mock_dependency_service
+            mock_dependency_service.index_playbook_dependencies.return_value = None
+            mock_dependency_service.requeue_dependent_schedules.return_value = None
+
+            mock_manual_run_service = MagicMock()
+            mock_manual_run_service_class.return_value = mock_manual_run_service
+            mock_manual_run_service.detect_manual_run_request.return_value = None
+
+            # Create meta mock that returns None for deletionTimestamp
+            meta_mock = MagicMock()
+            meta_mock.get.side_effect = lambda key, default=None: (
+                None if key == "deletionTimestamp" else MagicMock()
+            )
+            meta_mock.annotations = {}
+
+            # Mock the event emission to capture calls
+            with patch("ansible_operator.main._emit_event") as mock_emit:
+                reconcile_playbook(
+                    spec=spec,
+                    status=status,
+                    patch=mock_patch,
+                    name="test-playbook",
+                    namespace="default",
+                    uid="uid-123",
+                    meta=meta_mock,
+                )
 
         # Verify that the repository was fetched from the correct namespace
-        mock_api.get_namespaced_custom_object.assert_called_once_with(
+        mock_api.get_namespaced_custom_object.assert_any_call(
             group="ansible.cloud37.dev",
             version="v1alpha1",
             namespace="other-namespace",
