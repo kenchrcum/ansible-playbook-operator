@@ -22,8 +22,8 @@ FROM python:3.13-alpine
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-# Install git for repository validation
-RUN apk add --no-cache git
+# Install git and openssh for repository validation
+RUN apk add --no-cache git openssh-client
 
 RUN addgroup -S app && adduser -S app -G app
 USER app
