@@ -133,3 +133,62 @@ def test_cronjob_builder_no_vault_password_secret_ref():
     # Verify no --vault-password-file flag in ansible-playbook command
     args = container["args"][0]
     assert "--vault-password-file" not in args
+
+
+def test_cronjob_builder_ansible_cfg_not_set():
+    """Test that ANSIBLE_CONFIG is not set when spec.ansibleCfgPath is not provided."""
+    playbook = {"spec": {"playbookPath": "playbook.yml"}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify ANSIBLE_CONFIG is not set in the script
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert "export ANSIBLE_CONFIG" not in args
+
+
+def test_cronjob_builder_ansible_cfg_absolute_path():
+    """Test ANSIBLE_CONFIG with absolute path."""
+    playbook = {
+        "spec": {"playbookPath": "playbook.yml", "ansibleCfgPath": "/custom/path/ansible.cfg"}
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify ANSIBLE_CONFIG is set to the absolute path
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert 'export ANSIBLE_CONFIG="/custom/path/ansible.cfg"' in args
+
+
+def test_cronjob_builder_ansible_cfg_relative_path():
+    """Test ANSIBLE_CONFIG with relative path resolves under /workspace/repo."""
+    playbook = {"spec": {"playbookPath": "playbook.yml", "ansibleCfgPath": "my-ansible.cfg"}}
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    # Verify ANSIBLE_CONFIG is set to the resolved relative path
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    args = container["args"][0]
+    assert 'export ANSIBLE_CONFIG="/workspace/repo/my-ansible.cfg"' in args

@@ -17,7 +17,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [ ] Secrets: implement `secrets.fileMounts` (key-to-path) and mount layout; include optional `fsGroup` when needed.
 - [x] Secrets: support `vaultPasswordSecretRef` and wire to Ansible via `--vault-password-file`.
 - [ ] Vars: merge `extraVarsSecretRefs` with `extraVars` without logging secret values; ensure deterministic precedence and redaction in logs.
-- [ ] Ansible config: support in-repo `ansible.cfg` (relative paths should resolve under `/workspace/repo`), and environment `ANSIBLE_CONFIG` when `spec.ansibleCfgPath` is set.
+- [x] Ansible config: support in-repo `ansible.cfg` (relative paths should resolve under `/workspace/repo`), and environment `ANSIBLE_CONFIG` when `spec.ansibleCfgPath` is set.
 - [ ] Git: add options for `submodules`, `lfs`, and shallow clone; respect `Repository.spec.git.*`.
 - [ ] Caching: optional PVC-backed cache for `~/.ansible` collections/roles per `Repository.spec.cache` and chart values.
 - [ ] Traceability: label Jobs with `ansible.cloud37.dev/run-id` and resolved `ansible.cloud37.dev/revision`; annotate rendered command sans secrets.
@@ -74,7 +74,6 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] RBAC presets for minimal, scoped, and cluster-admin roles/bindings controlled by chart values.
 - [ ] Broaden Ansible execution capabilities and configuration options beyond basic playbooks (vars, tags, vault, multiple inventories, retries/timeouts).
 - [ ] General Helm chart improvements (values structure, docs, examples, NetworkPolicies, digest pinning).
-- [ ] In-repo `ansible.cfg` support (path resolution, env wiring, doc & tests).
 
 ### Later-phase (v1beta1+) considerations
 - [ ] Introduce a dedicated `Run` CR (instead of annotation) for ad-hoc executions with history and status.

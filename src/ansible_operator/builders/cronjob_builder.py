@@ -148,8 +148,18 @@ def build_cronjob(
         inventory_flags.extend(["-i", ipath])
 
     extra_env_exports: list[str] = []
+
+    # Set ANSIBLE_CONFIG when spec.ansibleCfgPath is explicitly set
+    # Relative paths resolve under /workspace/repo
+    # When not set, Ansible will naturally use in-repo ansible.cfg since we cd to /workspace/repo
     if ansible_cfg_path:
-        extra_env_exports.append(f'export ANSIBLE_CONFIG="{ansible_cfg_path}"')
+        if ansible_cfg_path.startswith("/"):
+            # Absolute path - use as-is
+            resolved_ansible_cfg = ansible_cfg_path
+        else:
+            # Relative path - resolve under repo directory
+            resolved_ansible_cfg = f"/workspace/repo/{ansible_cfg_path}"
+        extra_env_exports.append(f'export ANSIBLE_CONFIG="{resolved_ansible_cfg}"')
 
     # Build git auth setup
     git_auth_setup: list[str] = ["mkdir -p $HOME/.ssh"]

@@ -187,7 +187,7 @@ Configures an Ansible playbook execution environment.
 - `spec.repositoryRef.name` (required) — Reference to Repository
 - `spec.playbookPath` (required) — Path to playbook relative to repo root
 - `spec.inventoryPath` / `spec.inventoryPaths` — Inventory file(s)
-- `spec.ansibleCfgPath` — Custom ansible.cfg location
+- `spec.ansibleCfgPath` — Custom ansible.cfg location (optional; relative paths resolve under `/workspace/repo`)
 - `spec.extraVars` — Extra variables as key-value pairs
 - `spec.extraVarsSecretRefs` — Secrets to merge into extra vars
 - `spec.secrets` — Secret injection configuration:
@@ -201,7 +201,7 @@ Configures an Ansible playbook execution environment.
   - `resources`, `nodeSelector`, `tolerations`, `affinity`
   - `securityContext`, `podSecurityContext`
 
-**Example: Playbook with secrets and vault:**
+**Example: Playbook with secrets, vault, and custom ansible.cfg:**
 
 ```yaml
 apiVersion: ansible.cloud37.dev/v1alpha1
@@ -213,6 +213,9 @@ spec:
     name: my-ansible-repo
   playbookPath: playbooks/deploy.yml
   inventoryPath: inventory/production
+  ansibleCfgPath: ansible-prod.cfg  # Relative path: /workspace/repo/ansible-prod.cfg
+  # ansibleCfgPath: /custom/path/ansible.cfg  # Absolute path used as-is
+  # Omit ansibleCfgPath to use in-repo ansible.cfg at /workspace/repo/ansible.cfg
   extraVars:
     app_version: "1.2.3"
     environment: production
