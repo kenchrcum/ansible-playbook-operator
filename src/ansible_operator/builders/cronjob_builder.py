@@ -33,6 +33,7 @@ def build_cronjob(
     spec = playbook.get("spec") or {}
     runtime = spec.get("runtime") or {}
     secrets_cfg = spec.get("secrets") or {}
+    vault_password_secret_ref = secrets_cfg.get("vaultPasswordSecretRef")
     image: str = runtime.get("image") or image_default
 
     resources: dict[str, Any] = schedule_spec.get("resources") or {}
@@ -121,6 +122,15 @@ def build_cronjob(
             {"name": "ssh-known", "mountPath": "/ssh-knownhosts", "readOnly": True}
         )
 
+    # Mount vault password secret when specified
+    if vault_password_secret_ref and vault_password_secret_ref.get("name"):
+        volumes.append(
+            {"name": "vault-password", "secret": {"secretName": vault_password_secret_ref["name"]}}
+        )
+        volume_mounts.append(
+            {"name": "vault-password", "mountPath": "/vault-password", "readOnly": True}
+        )
+
     # Token-based auth env var
     if auth_method == "token" and auth_secret_name:
         env_list.append(
@@ -198,11 +208,18 @@ def build_cronjob(
         extra_vars_json = json.dumps(extra_vars)
         extra_vars_flags = ["--extra-vars", extra_vars_json]
 
+    # Build vault password flags
+    vault_password_flags: list[str] = []
+    if vault_password_secret_ref and vault_password_secret_ref.get("name"):
+        # Default to "password" key if not specified, but CRD schema doesn't allow key specification
+        vault_password_flags = ["--vault-password-file", "/vault-password/password"]
+
     ansible_cmd_parts: list[str] = [
         "ansible-playbook",
         playbook_path,
         *inventory_flags,
         *extra_vars_flags,
+        *vault_password_flags,
     ]
 
     script_lines: list[str] = [

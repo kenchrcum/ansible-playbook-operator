@@ -15,7 +15,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 
 ### Execution Template (CronJob/Job) builder
 - [ ] Secrets: implement `secrets.fileMounts` (key-to-path) and mount layout; include optional `fsGroup` when needed.
-- [ ] Secrets: support `vaultPasswordSecretRef` and wire to Ansible via `--vault-password-file`.
+- [x] Secrets: support `vaultPasswordSecretRef` and wire to Ansible via `--vault-password-file`.
 - [ ] Vars: merge `extraVarsSecretRefs` with `extraVars` without logging secret values; ensure deterministic precedence and redaction in logs.
 - [ ] Ansible config: support in-repo `ansible.cfg` (relative paths should resolve under `/workspace/repo`), and environment `ANSIBLE_CONFIG` when `spec.ansibleCfgPath` is set.
 - [ ] Git: add options for `submodules`, `lfs`, and shallow clone; respect `Repository.spec.git.*`.
