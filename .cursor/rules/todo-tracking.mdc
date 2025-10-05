@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+description: "Task tracking discipline: reconcile TODOs and mark processed items as finished."
+---
+# TODO Discipline (Agent Workflow)
+
+- Always reconcile the TODO list before starting new work:
+  - Mark newly completed tasks as completed immediately after finishing.
+  - Keep only one task `in_progress` at a time.
+  - Set the next task to `in_progress` before starting it.
+  - Cancel skipped tasks with a one-line justification.
+
+- Gate before edits: reconcile TODOs, then proceed with file or code edits.
+
+- After each meaningful step (file created, endpoint added, build/test run), update the corresponding TODO item status right away.
+
+- When all goal tasks are done:
+  - Check off any remaining items, reconcile, and close the TODO list.
+  - Provide a brief, high-signal summary of changes (no process narration).
+
+- Do not leave stale TODOs; the list must reflect current reality at all times.
