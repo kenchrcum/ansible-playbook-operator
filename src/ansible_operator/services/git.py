@@ -83,17 +83,16 @@ class GitService:
                 # Prepare git command
                 git_cmd = ["git", "clone", "--depth", "1", repo_url, str(clone_dir)]
 
-                # Add authentication if specified
-                if auth_method == "ssh" and auth_secret_ref.get("name"):
-                    # For SSH, we would need to mount the secret and set up SSH keys
-                    # This is a simplified version - in practice, this would be done
-                    # in a Kubernetes Job with proper secret mounting
-                    pass
-                elif auth_method == "token" and auth_secret_ref.get("name"):
-                    # For token auth, we would need to mount the secret and set up netrc
-                    # This is a simplified version - in practice, this would be done
-                    # in a Kubernetes Job with proper secret mounting
-                    pass
+                # Skip authentication validation for SSH/token repos
+                # Authentication will be validated during actual Job execution
+                # where secrets can be properly mounted
+                if auth_method in ["ssh", "token"] and auth_secret_ref.get("name"):
+                    # For authenticated repositories, we can't validate paths without
+                    # access to the secrets. Return success and let Job execution handle validation.
+                    return (
+                        True,
+                        "Authentication required - path validation deferred to Job execution",
+                    )
 
                 # Clone repository
                 result = subprocess.run(
