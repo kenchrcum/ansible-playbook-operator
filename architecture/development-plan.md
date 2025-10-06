@@ -216,7 +216,12 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 
 #### 3.11 Requeues and backoff
 - Requeue on transient failures with exponential backoff; cap max delay.
-- Periodic soft requeue (e.g., every 10–15 minutes) for `Schedule` to refresh `nextRunTime` if needed.
+- Periodic soft requeue (every 15 minutes) for `Schedule` to refresh `nextRunTime` if needed.
+  - Implemented via `@kopf.timer(API_GROUP_VERSION, "schedules", interval=900)`
+  - Compares Schedule's `nextRunTime` with CronJob's `nextScheduleTime`
+  - Only updates Schedule status if values differ (soft requeue)
+  - Handles missing CronJobs gracefully (404 errors)
+  - Avoids busy loops by using timer-based reconciliation
 - Avoid time-based loops where possible; rely on Kubernetes events/status.
 
 ### 4. Git and execution separation

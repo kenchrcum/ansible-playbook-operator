@@ -53,7 +53,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 ### Status and Drift/SSA Strategy
 - [x] SSA ownership: limit patches to operator-owned fields; avoid stomping user-managed fields; codify ownership map.
 - [x] Adoption safety: require matching owner UID annotation or label to adopt existing resources; otherwise emit warnings and do not hijack.
-- [ ] Periodic requeue: soft requeue for `Schedule` to refresh `nextRunTime` if needed without busy loops.
+- [x] Periodic requeue: soft requeue for `Schedule` to refresh `nextRunTime` if needed without busy loops.
 
 ### Testing
 - [x] Unit: CRD schema defaults/validation, command rendering (inventory, extra vars, secret injection, vault), git options (ssh/token, known_hosts), security defaults merging.

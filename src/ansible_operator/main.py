@@ -1481,6 +1481,129 @@ def reconcile_schedule(
         raise
 
 
+@kopf.timer(API_GROUP_VERSION, "schedules", interval=900)  # 15 minutes
+def periodic_schedule_requeue(
+    name: str,
+    namespace: str,
+    uid: str,
+    spec: dict[str, Any],
+    status: dict[str, Any],
+    **_: Any,
+) -> None:
+    """
+    Periodic soft requeue for Schedule to refresh nextRunTime if needed.
+
+    This timer runs every 15 minutes to ensure Schedule resources have up-to-date
+    nextRunTime values without causing busy loops. The requeue is "soft" because
+    it only triggers reconciliation if the nextRunTime needs refreshing.
+    """
+    structured_logging.logger.debug(
+        "Periodic Schedule requeue triggered",
+        controller="Schedule",
+        resource=f"{namespace}/{name}",
+        uid=uid,
+        event="periodic-requeue",
+        reason="TimerExpired",
+    )
+
+    # Get current CronJob to check if nextRunTime needs updating
+    try:
+        batch_api = client.BatchV1Api()
+        cronjob_name = f"schedule-{name}"
+
+        # Try to get the CronJob
+        cronjob = batch_api.read_namespaced_cron_job(cronjob_name, namespace)
+        cronjob_status = cronjob.status
+
+        # Check if we have a nextScheduleTime from the CronJob
+        next_schedule_time = cronjob_status.next_schedule_time
+        if next_schedule_time:
+            # Convert to ISO format for comparison
+            next_schedule_iso = next_schedule_time.isoformat() + "Z"
+
+            # Check if the Schedule's nextRunTime needs updating
+            current_next_run_time = status.get("nextRunTime")
+
+            if current_next_run_time != next_schedule_iso:
+                # Update the Schedule's nextRunTime
+                api = client.CustomObjectsApi()
+                patch_body = {
+                    "status": {
+                        "nextRunTime": next_schedule_iso,
+                    }
+                }
+
+                api.patch_namespaced_custom_object_status(
+                    group=API_GROUP,
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="schedules",
+                    name=name,
+                    body=patch_body,
+                    field_manager="ansible-operator",
+                )
+
+                structured_logging.logger.info(
+                    "Schedule nextRunTime updated via periodic requeue",
+                    controller="Schedule",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="periodic-requeue",
+                    reason="NextRunTimeUpdated",
+                    next_run_time=next_schedule_iso,
+                )
+            else:
+                structured_logging.logger.debug(
+                    "Schedule nextRunTime is up-to-date, no update needed",
+                    controller="Schedule",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="periodic-requeue",
+                    reason="NoUpdateNeeded",
+                )
+        else:
+            structured_logging.logger.debug(
+                "CronJob has no nextScheduleTime, skipping update",
+                controller="Schedule",
+                resource=f"{namespace}/{name}",
+                uid=uid,
+                event="periodic-requeue",
+                reason="NoNextScheduleTime",
+            )
+
+    except client.exceptions.ApiException as e:
+        if e.status == 404:
+            # CronJob doesn't exist yet, which is normal for new Schedules
+            structured_logging.logger.debug(
+                "CronJob not found during periodic requeue, skipping",
+                controller="Schedule",
+                resource=f"{namespace}/{name}",
+                uid=uid,
+                event="periodic-requeue",
+                reason="CronJobNotFound",
+            )
+        else:
+            structured_logging.logger.warning(
+                f"Failed to get CronJob during periodic requeue: {e}",
+                controller="Schedule",
+                resource=f"{namespace}/{name}",
+                uid=uid,
+                event="periodic-requeue",
+                reason="CronJobGetFailed",
+                error=str(e),
+            )
+    except Exception as e:
+        structured_logging.logger.warning(
+            f"Periodic requeue failed: {e}",
+            controller="Schedule",
+            resource=f"{namespace}/{name}",
+            uid=uid,
+            event="periodic-requeue",
+            reason="RequeueFailed",
+            error=str(e),
+        )
+
+
 @kopf.on.event("batch", "v1", "cronjobs")
 def handle_cronjob_event(event: dict[str, Any], **_: Any) -> None:
     """Handle CronJob events to update Schedule status fields."""
