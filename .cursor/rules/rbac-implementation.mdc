@@ -16,7 +16,7 @@ Implement RBAC with three progressive levels controlled by `rbac.preset` Helm va
 ### Scoped
 - Extended namespaced permissions for cross-namespace scenarios
 - ClusterRole for reading resources across namespaces
-- **Use case**: Multi-namespace operator deployments
+- **Use case**: Cluster-wide operator deployments
 
 ### Cluster-Admin
 - Full cluster permissions within namespace
@@ -60,7 +60,7 @@ rules:
 
 ## Validation Checklist
 - [ ] Minimal preset provides least-privilege for single-namespace operation
-- [ ] Scoped preset enables cross-namespace scenarios without full cluster access
+- [ ] Scoped preset enables cluster-wide scenarios without full cluster access
 - [ ] Cluster-admin preset is clearly marked as high-risk with warnings
 - [ ] Backward compatibility maintained with existing configurations
 - [ ] Documentation includes preset trade-offs and use cases
