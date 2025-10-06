@@ -111,9 +111,9 @@ def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
             return
 
 
-@kopf.on.resume()
+@kopf.on.startup()
 def rebuild_dependency_indices(**_: Any) -> None:
-    """Rebuild dependency indices after operator restart to ensure cross-resource triggers work."""
+    """Rebuild dependency indices on operator startup to ensure cross-resource triggers work."""
     structured_logging.logger.info(
         "Rebuilding dependency indices after operator restart",
         event="startup",
