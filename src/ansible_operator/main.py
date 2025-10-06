@@ -111,6 +111,58 @@ def configure(settings: kopf.OperatorSettings, **_: Any) -> None:
             return
 
 
+@kopf.on.resume()
+def rebuild_dependency_indices(**_: Any) -> None:
+    """Rebuild dependency indices after operator restart to ensure cross-resource triggers work."""
+    structured_logging.logger.info(
+        "Rebuilding dependency indices after operator restart",
+        event="startup",
+        reason="IndexRebuild",
+    )
+
+    try:
+        api = client.CustomObjectsApi()
+
+        # Get all namespaces to scan based on watch scope
+        namespaces = []
+        watch_scope = os.getenv("WATCH_SCOPE", "namespace")
+
+        if watch_scope == "all":
+            # Get all namespaces for cluster-wide operation
+            try:
+                v1 = client.CoreV1Api()
+                ns_list = v1.list_namespace()
+                namespaces = [ns.metadata.name for ns in ns_list.items]
+            except Exception:
+                # Fallback to default namespace if we can't list namespaces
+                namespaces = ["default"]
+        else:
+            # Single namespace operation - get current namespace
+            try:
+                current_ns = os.getenv("POD_NAMESPACE", "default")
+                namespaces = [current_ns]
+            except Exception:
+                namespaces = ["default"]
+
+        # Rebuild all dependency indices
+        dependency_service.rebuild_all_indices(namespaces)
+
+        structured_logging.logger.info(
+            f"Rebuilt dependency indices for {len(namespaces)} namespaces",
+            event="startup",
+            reason="IndexRebuild",
+            namespaces=namespaces,
+        )
+
+    except Exception as e:
+        structured_logging.logger.error(
+            f"Failed to rebuild dependency indices: {e}",
+            event="startup",
+            reason="IndexRebuildFailed",
+            error=str(e),
+        )
+
+
 def _update_condition(
     status: dict[str, Any], type_: str, status_value: str, reason: str, message: str
 ) -> None:

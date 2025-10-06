@@ -199,6 +199,47 @@ class DependencyService:
         """Get list of Schedules that depend on the given Playbook."""
         return self._playbook_to_schedules.get(namespace, {}).get(playbook_name, [])
 
+    def rebuild_all_indices(self, namespaces: list[str]) -> None:
+        """Rebuild all dependency indices for the given namespaces."""
+        try:
+            api = client.CustomObjectsApi()
+
+            for namespace in namespaces:
+                try:
+                    # Get all repositories to rebuild their dependencies
+                    repositories = api.list_namespaced_custom_object(
+                        group=API_GROUP,
+                        version="v1alpha1",
+                        namespace=namespace,
+                        plural="repositories",
+                    )
+
+                    # Rebuild Repository -> Playbook dependencies
+                    for repo in repositories.get("items", []):
+                        repo_name = repo["metadata"]["name"]
+                        self.index_repository_dependencies(namespace, repo_name)
+
+                    # Get all playbooks to rebuild their dependencies
+                    playbooks = api.list_namespaced_custom_object(
+                        group=API_GROUP,
+                        version="v1alpha1",
+                        namespace=namespace,
+                        plural="playbooks",
+                    )
+
+                    # Rebuild Playbook -> Schedule dependencies
+                    for playbook in playbooks.get("items", []):
+                        playbook_name = playbook["metadata"]["name"]
+                        self.index_playbook_dependencies(namespace, playbook_name)
+
+                except Exception:
+                    # Individual namespace failures are non-critical
+                    pass
+
+        except Exception:
+            # Index rebuild failures are non-critical
+            pass
+
 
 # Global instance
 dependency_service = DependencyService()
