@@ -76,7 +76,7 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `executorDefaults.image.repository` | Executor image repository | `kenchrcum/ansible-runner` |
-| `executorDefaults.image.tag` | Executor image tag | `latest` |
+| `executorDefaults.image.tag` | Executor image tag | `13` |
 | `executorDefaults.image.digest` | Executor image digest (takes precedence over tag) | `""` |
 | `executorDefaults.image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `executorDefaults.serviceAccount.create` | Create executor ServiceAccount | `true` |
@@ -134,7 +134,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
 
 rbac:
   preset: minimal
@@ -167,7 +167,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
     pullPolicy: IfNotPresent
   cache:
@@ -199,7 +199,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
 
 rbac:
   preset: minimal

@@ -26,4 +26,4 @@ annotations:
     - name: kenchrcum/ansible-playbook-operator
       image: kenchrcum/ansible-playbook-operator:0.1.0
     - name: kenchrcum/ansible-runner
-      image: kenchrcum/ansible-runner:latest
+      image: kenchrcum/ansible-runner:13

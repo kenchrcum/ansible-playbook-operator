@@ -62,7 +62,7 @@ executorDefaults:
   # Default executor image
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: ""  # Optional: pin by digest for security
     pullPolicy: IfNotPresent
 

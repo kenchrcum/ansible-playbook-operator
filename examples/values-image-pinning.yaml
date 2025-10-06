@@ -32,7 +32,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     # Pin to specific digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"

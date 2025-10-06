@@ -37,7 +37,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     # Optional: pin image by digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     # Format: sha256:abc123def456...
@@ -82,7 +82,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest    # Ignored when digest is present
+    tag: 13    # Ignored when digest is present
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 ```
 
@@ -99,7 +99,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: ""  # Empty digest falls back to tag
 ```
 

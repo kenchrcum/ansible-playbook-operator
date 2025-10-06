@@ -25,7 +25,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: "sha256:def456abc123..."  # Takes precedence over tag
     pullPolicy: IfNotPresent
 ```
@@ -95,7 +95,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
     pullPolicy: IfNotPresent
 ```
@@ -120,7 +120,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
     pullPolicy: IfNotPresent
   cache:
@@ -144,7 +144,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: ""  # Empty digest falls back to tag
     pullPolicy: IfNotPresent
 ```

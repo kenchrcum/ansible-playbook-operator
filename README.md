@@ -585,7 +585,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
   serviceAccount:
     # Whether to create a separate ServiceAccount for executor Jobs
     create: true

@@ -29,7 +29,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     pullPolicy: IfNotPresent
   cache:
     strategy: pvc

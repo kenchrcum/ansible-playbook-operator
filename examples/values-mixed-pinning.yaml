@@ -30,7 +30,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     digest: ""  # Empty digest falls back to tag
     pullPolicy: IfNotPresent
   cache:

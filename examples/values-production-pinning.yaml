@@ -31,7 +31,7 @@ operator:
 executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
-    tag: latest
+    tag: 13
     # Production digest - replace with actual digest from your registry
     digest: "sha256:abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
     pullPolicy: IfNotPresent
