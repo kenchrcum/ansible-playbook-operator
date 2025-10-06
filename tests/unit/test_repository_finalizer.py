@@ -38,12 +38,10 @@ class TestRepositoryFinalizer:
         ):
             mock_batch_api = MagicMock()
             mock_batch_api_class.return_value = mock_batch_api
-            # First call fails with 409 (job exists), second call succeeds
-            mock_batch_api.create_namespaced_job.side_effect = [
-                client.exceptions.ApiException(status=409),
-                None,  # Second call succeeds
-            ]
-            mock_batch_api.delete_namespaced_job.return_value = None
+            mock_batch_api.create_namespaced_job.side_effect = client.exceptions.ApiException(
+                status=409
+            )
+            mock_batch_api.patch_namespaced_job.return_value = None
 
             reconcile_repository(
                 spec=spec,
@@ -91,12 +89,10 @@ class TestRepositoryFinalizer:
         ):
             mock_batch_api = MagicMock()
             mock_batch_api_class.return_value = mock_batch_api
-            # First call fails with 409 (job exists), second call succeeds
-            mock_batch_api.create_namespaced_job.side_effect = [
-                client.exceptions.ApiException(status=409),
-                None,  # Second call succeeds
-            ]
-            mock_batch_api.delete_namespaced_job.return_value = None
+            mock_batch_api.create_namespaced_job.side_effect = client.exceptions.ApiException(
+                status=409
+            )
+            mock_batch_api.patch_namespaced_job.return_value = None
 
             reconcile_repository(
                 spec=spec,

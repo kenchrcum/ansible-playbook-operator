@@ -44,10 +44,6 @@ spec:
               value: {{ ternary "true" "false" .Values.operator.leaderElection | quote }}
             - name: WATCH_SCOPE
               value: {{ .Values.operator.watch.scope | quote }}
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             {{- if .Values.executorDefaults.serviceAccount.create }}
             - name: EXECUTOR_SERVICE_ACCOUNT
               value: {{ include "ansible-playbook-operator.executorServiceAccountName" . | quote }}
