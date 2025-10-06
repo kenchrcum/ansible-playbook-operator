@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 from contextlib import suppress
 from datetime import datetime, timezone
 from time import monotonic
@@ -551,7 +552,7 @@ def reconcile_repository(
         batch_api = client.BatchV1Api()
         job_name = f"{name}-probe"
 
-        # Create or patch the probe job
+        # Create or recreate the probe job
         try:
             batch_api.create_namespaced_job(
                 namespace=namespace,
@@ -560,13 +561,32 @@ def reconcile_repository(
             )
         except client.exceptions.ApiException as e:
             if e.status == 409:
-                # Job already exists; patch it
-                batch_api.patch_namespaced_job(
-                    name=job_name,
-                    namespace=namespace,
-                    body=job_manifest,
-                    field_manager="ansible-operator",
-                )
+                # Job already exists; delete and recreate it
+                # Jobs cannot be patched after creation due to immutable spec.template
+                try:
+                    batch_api.delete_namespaced_job(
+                        name=job_name,
+                        namespace=namespace,
+                        propagation_policy="Background",
+                    )
+                    # Wait a moment for deletion to complete
+                    time.sleep(1)
+                    # Recreate the job
+                    batch_api.create_namespaced_job(
+                        namespace=namespace,
+                        body=job_manifest,
+                        field_manager="ansible-operator",
+                    )
+                except client.exceptions.ApiException as delete_e:
+                    if delete_e.status == 404:
+                        # Job was already deleted, just create it
+                        batch_api.create_namespaced_job(
+                            namespace=namespace,
+                            body=job_manifest,
+                            field_manager="ansible-operator",
+                        )
+                    else:
+                        raise
             else:
                 raise
 
