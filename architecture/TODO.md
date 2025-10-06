@@ -62,7 +62,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Concurrency/race: overlapping schedules with `Forbid/Replace`, many schedules using random macros, operator restarts (`on.resume`).
 
 ### CI/CD and Release
-- [ ] CI pipeline: ruff, black, mypy, unit tests, minimal kind e2e smoke, chart lint; secret scanning and dependency audit.
+- [x] CI pipeline: black, mypy, unit tests, minimal kind e2e smoke, chart lint; secret scanning and dependency audit.
 - [ ] Supply chain: SBOM (Syft) and image scan (Trivy/Grype); publish digests on release; changelog automation.
 
 ### Documentation and Examples

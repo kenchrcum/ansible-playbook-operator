@@ -1,0 +1,30 @@
+chart-dirs:
+  - helm
+
+chart-repos:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+
+# Chart testing configuration
+validate-maintainers: false
+validate-chart-schema: true
+validate-yaml: true
+check-version-increment: false
+
+# Lint configuration
+lint-conf: .github/lintconf.yaml
+
+# Test configuration
+install-extra-args: --timeout 600s --wait --wait-for-jobs
+test-extra-args: --timeout 600s
+
+# Allowed chart versions
+allowed-branch-patterns:
+  - main
+  - develop
+  - 'feat/*'
+  - 'fix/*'
+  - 'docs/*'
+  - 'chore/*'
+  - 'refactor/*'
+  - 'test/*'

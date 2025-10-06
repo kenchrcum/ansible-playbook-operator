@@ -1,0 +1,69 @@
+# Helm lint configuration
+strict: true
+quiet: false
+color: true
+
+# Linting rules - disable some rules that are not applicable to operators
+rules:
+  - name: missing-values-file
+    severity: warning
+  - name: missing-chart-yaml
+    severity: error
+  - name: missing-values-schema
+    severity: warning
+  - name: invalid-chart-yaml
+    severity: error
+  - name: invalid-values-schema
+    severity: error
+  - name: missing-templates
+    severity: warning
+  - name: missing-tests
+    severity: warning
+  - name: missing-readme
+    severity: warning
+  - name: missing-license
+    severity: warning
+  - name: missing-app-version
+    severity: warning
+  - name: missing-dep-version
+    severity: warning
+  - name: missing-dep-repo
+    severity: error
+  - name: missing-dep-name
+    severity: error
+  - name: invalid-dep-name
+    severity: error
+  - name: invalid-dep-version
+    severity: error
+  - name: invalid-dep-repo
+    severity: error
+  - name: missing-home
+    severity: warning
+  - name: missing-maintainers
+    severity: warning
+  - name: missing-sources
+    severity: warning
+  - name: missing-description
+    severity: error
+  - name: missing-keywords
+    severity: warning
+  - name: missing-name
+    severity: error
+  - name: missing-version
+    severity: error
+  - name: invalid-name
+    severity: error
+  - name: invalid-version
+    severity: error
+  - name: invalid-app-version
+    severity: error
+  - name: invalid-home
+    severity: error
+  - name: invalid-maintainers
+    severity: error
+  - name: invalid-sources
+    severity: error
+  - name: invalid-description
+    severity: error
+  - name: invalid-keywords
+    severity: error
