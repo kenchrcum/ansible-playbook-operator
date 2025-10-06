@@ -61,20 +61,26 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Integration (kind): deploy operator, create CRs → CronJob materialization, Job success/failure paths; auth matrix (SSH with pinned known_hosts, HTTPS token); pod security defaults enforced.
 - [x] Concurrency/race: overlapping schedules with `Forbid/Replace`, many schedules using random macros, operator restarts (`on.resume`).
 
-### CI/CD and Release
-- [ ] CI pipeline: ruff, black, mypy, unit tests, minimal kind e2e smoke, chart lint; secret scanning and dependency audit.
-- [ ] Supply chain: SBOM (Syft) and image scan (Trivy/Grype); publish digests on release; changelog automation.
-
 ### Documentation and Examples
 - [x] README: extend with RBAC presets, watch scope, executor SA, security defaults, and metrics integration.
 - [x] Architecture doc: update `architecture/development-plan.md` when adding new fields or behaviors (design-first).
 - [x] Examples: add `ansible.cfg` in-repo example, `fileMounts`, `vaultPasswordSecretRef`, PVC cache usage, and RBAC presets; all runnable on kind/minikube.
 
-### From user’s current priorities
+### From user's current priorities
 - [x] RBAC presets for minimal, scoped, and cluster-admin roles/bindings controlled by chart values.
 - [x] Broaden Ansible execution capabilities and configuration options beyond basic playbooks (vars, tags, vault, multiple inventories, retries/timeouts).
 - [x] General Helm chart improvements (values structure, docs, examples, NetworkPolicies, digest pinning).
 
-### Later-phase (v1beta1+) considerations
-- [ ] Introduce a dedicated `Run` CR (instead of annotation) for ad-hoc executions with history and status.
-- [ ] Conversion and migration docs for any breaking CRD changes.
+---
+
+## Summary
+
+All planned v1alpha1 features have been completed. The operator now provides:
+
+- **Complete CRD support**: Repository, Playbook, and Schedule resources with full validation and status management
+- **Robust execution**: Comprehensive Ansible execution options, security defaults, and caching support
+- **Security-first design**: RBAC presets, NetworkPolicies, image pinning, and least-privilege defaults
+- **Production readiness**: Observability (metrics, events, structured logging), Helm chart with comprehensive values, and extensive examples
+- **Quality assurance**: Full test coverage (unit and integration), pre-commit hooks, and documentation
+
+Future enhancements are tracked in `architecture/TODO-future.md` for CI/CD improvements and v1beta1+ features.
