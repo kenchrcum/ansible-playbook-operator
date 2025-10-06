@@ -116,7 +116,7 @@ Status:
 - `lastRunRevision` (string)
 - `conditions`: `Active`, `BlockedByConcurrency`, `Ready`
 
-Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g., `ansible.cloud37.dev/run-now: <id>`). The operator detects the change, creates a one-shot Job, and records the result in `status`.
+Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g., `ansible.cloud37.dev/run-now: <id>`). The operator detects the change, creates a one-shot Job, and records the result in `status.lastManualRun`.
 
 ## Phase 3: Operator Architecture
 
@@ -234,7 +234,7 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 - Authentication:
   - Use typed Secrets (`kubernetes.io/ssh-auth`, Opaque token) per `Repository.spec.auth`
   - Enforce known_hosts pinning when `ssh.strictHostKeyChecking` is true by mounting the provided ConfigMap
-  - Avoid runtime `ssh-keyscan` by default; allow opt-in via a `Playbook.runtime.allowSshKeyscan` future flag
+  - Avoid runtime `ssh-keyscan` by default; strict host key checking is enforced
 - Repo options:
   - Submodules and LFS support follow `Repository.spec.git` toggles
   - Shallow clone is preferred for performance unless `revision` requires full history
@@ -248,7 +248,8 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
 - Command construction:
   - Install galaxy requirements if `requirements.yml` exists
   - Build `ansible-playbook` command with inventory path(s), `--extra-vars` from `extraVars` and `extraVarsSecretRefs`
-  - Support tags (future) and `ansible.cfg` if provided
+  - Support tags, check mode, verbosity, and other execution options via `spec.execution`
+  - Support `ansible.cfg` if provided
 - Secrets and config injection:
   - Environment: explicit env var mappings and full `envFromSecretRefs`
   - Files: `fileMounts` with key-to-path mappings and a vault password file if configured

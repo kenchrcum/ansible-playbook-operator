@@ -637,9 +637,22 @@ Contributions are welcome! Please follow these guidelines:
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-## 📖 Architecture
+## 📖 Documentation
 
-See the [Development Plan](./architecture/development-plan.md) for comprehensive architectural documentation covering:
+### Core Documentation
+- [Development Plan](./architecture/development-plan.md) - Comprehensive architectural documentation
+- [Configuration Reference](./docs/configuration.md) - Complete configuration guide
+- [Troubleshooting Guide](./docs/troubleshooting.md) - Common issues and solutions
+
+### Operational Guides
+- [Security Best Practices](./docs/security.md) - Security configuration and best practices
+- [Monitoring and Alerting](./docs/monitoring.md) - Observability setup and configuration
+- [Performance Tuning](./docs/performance.md) - Performance optimization guide
+- [Upgrade and Migration](./docs/upgrade.md) - Version upgrades and migrations
+
+### Architecture Overview
+
+The [Development Plan](./architecture/development-plan.md) covers:
 
 - CRD design philosophy
 - Reconciliation model and Server-Side Apply strategy
