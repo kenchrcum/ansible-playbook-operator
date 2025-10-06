@@ -47,7 +47,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 
 ### CRDs
 - [x] Reconcile CRD schemas with plan: verify defaults, validations (CEL), and `status` shapes match; add missing list fields enums and descriptions.
-- [ ] Backward compatibility notes: establish policy for version bumps (`v1beta1`) and conversion when schema evolves.
+- [x] Backward compatibility notes: establish policy for version bumps (`v1beta1`) and conversion when schema evolves.
 - [x] Additional validations: mutually exclusive fields (already for inventory), ensure required fields for `fileMounts` and secret refs; add CEL for simple guards.
 
 ### Status and Drift/SSA Strategy
