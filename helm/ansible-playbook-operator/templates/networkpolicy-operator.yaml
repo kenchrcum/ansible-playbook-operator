@@ -18,7 +18,8 @@ spec:
     {{- if eq .Values.networkPolicies.preset "restrictive" }}
     # Restrictive preset: Only Git endpoints and container registries
     {{- range .Values.networkPolicies.git.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.git.ports }}
         - protocol: {{ .protocol }}
@@ -26,7 +27,8 @@ spec:
         {{- end }}
     {{- end }}
     {{- range .Values.networkPolicies.git.custom }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.git.ports }}
         - protocol: {{ .protocol }}
@@ -34,7 +36,8 @@ spec:
         {{- end }}
     {{- end }}
     {{- range .Values.networkPolicies.registries.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.registries.ports }}
         - protocol: {{ .protocol }}
@@ -42,7 +45,8 @@ spec:
         {{- end }}
     {{- end }}
     {{- range .Values.networkPolicies.registries.custom }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.registries.ports }}
         - protocol: {{ .protocol }}
@@ -54,7 +58,8 @@ spec:
     {{- if .Values.networkPolicies.dns.enabled }}
     # DNS resolution
     {{- range .Values.networkPolicies.dns.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.dns.ports }}
         - protocol: {{ .protocol }}
@@ -64,7 +69,8 @@ spec:
     {{- end }}
     # Git endpoints
     {{- range .Values.networkPolicies.git.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.git.ports }}
         - protocol: {{ .protocol }}
@@ -72,7 +78,8 @@ spec:
         {{- end }}
     {{- end }}
     {{- range .Values.networkPolicies.git.custom }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.git.ports }}
         - protocol: {{ .protocol }}
@@ -81,7 +88,8 @@ spec:
     {{- end }}
     # Container registries
     {{- range .Values.networkPolicies.registries.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.registries.ports }}
         - protocol: {{ .protocol }}
@@ -89,7 +97,8 @@ spec:
         {{- end }}
     {{- end }}
     {{- range .Values.networkPolicies.registries.custom }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.registries.ports }}
         - protocol: {{ .protocol }}
@@ -99,7 +108,8 @@ spec:
     {{- if .Values.networkPolicies.kubernetes.enabled }}
     # Kubernetes API server
     {{- range .Values.networkPolicies.kubernetes.endpoints }}
-    - to: []
+    - to:
+        - namespaceSelector: {}
       ports:
         {{- range $.Values.networkPolicies.kubernetes.ports }}
         - protocol: {{ .protocol }}

@@ -8,10 +8,22 @@ keywords:
   - kubernetes
   - operator
   - ansible
+  - gitops
+  - automation
+  - cronjob
+  - playbook
 home: https://github.com/kenchrcum/ansible-playbook-operator
 sources:
   - https://github.com/kenchrcum/ansible-playbook-operator
-icon: ""
+icon: https://raw.githubusercontent.com/kenchrcum/ansible-playbook-operator/main/docs/logo.png
 maintainers:
-  - name: cloud37
-    email: ""
+  - name: Kenneth
+    url: https://github.com/kenchrcum
+annotations:
+  category: "Operators"
+  licenses: "Unlicense"
+  images: |
+    - name: kenchrcum/ansible-playbook-operator
+      image: kenchrcum/ansible-playbook-operator:0.1.0
+    - name: kenchrcum/ansible-runner
+      image: kenchrcum/ansible-runner:latest

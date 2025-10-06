@@ -1,12 +1,20 @@
+# =============================================================================
+# OPERATOR CONFIGURATION
+# =============================================================================
+# Configuration for the Ansible Playbook Operator deployment
 operator:
+  # Operator container image configuration
   image:
     repository: kenchrcum/ansible-playbook-operator
     tag: "0.1.0"
     # Optional: pin image by digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     # Format: sha256:abc123def456...
+    # See examples/values-image-pinning.yaml for production examples
     digest: ""
     pullPolicy: IfNotPresent
+
+  # Resource requests and limits for the operator pod
   resources:
     requests:
       cpu: 100m
@@ -14,40 +22,65 @@ operator:
     limits:
       cpu: 500m
       memory: 512Mi
+
+  # Enable leader election for high availability deployments
   leaderElection: true
+
+  # Watch scope configuration
   watch:
-    # one of: namespace|all
+    # Watch scope: 'namespace' (default) or 'all' (cluster-wide)
+    # - namespace: Operator watches resources only in its own namespace
+    # - all: Operator watches resources across all namespaces
+    # See examples/values-cluster-watch.yaml for cluster-wide configuration
     scope: namespace
+
+  # Metrics and monitoring configuration
   metrics:
+    # Enable Prometheus metrics endpoint
     enabled: false
     serviceMonitor:
+      # Create ServiceMonitor resource for Prometheus Operator
       enabled: true
+
+  # ServiceAccount configuration for the operator
   serviceAccount:
+    # Create a dedicated ServiceAccount for the operator
     create: true
+    # Custom ServiceAccount name (auto-generated if empty)
     name: ""
 
+# =============================================================================
+# EXECUTOR DEFAULTS CONFIGURATION
+# =============================================================================
+# Default configuration for Ansible executor Jobs created by the operator
 executorDefaults:
+  # Default executor container image configuration
   image:
     repository: kenchrcum/ansible-runner
     tag: latest
     # Optional: pin image by digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     # Format: sha256:abc123def456...
+    # See examples/values-image-pinning.yaml for production examples
     digest: ""
     pullPolicy: IfNotPresent
+
+  # ServiceAccount configuration for executor Jobs
   serviceAccount:
     # Whether to create a separate ServiceAccount for executor Jobs
+    # Recommended: true (provides security isolation)
     create: true
     # Name of the executor ServiceAccount (auto-generated if empty)
     name: ""
-    # RBAC preset for executor permissions: minimal (default), scoped, cluster-admin
-    # minimal: least-privilege permissions for basic Ansible execution
-    # scoped: extended permissions for cross-namespace operations
-    # cluster-admin: full cluster permissions (use with extreme caution)
-    rbacPreset: minimal
+    # RBAC preset for executor permissions
+    # See examples/values-executor-serviceaccount.yaml for detailed examples
+    rbacPreset: minimal  # Options: minimal, scoped, cluster-admin
+
+  # Cache configuration for Ansible collections and roles
   cache:
     # Default cache strategy for repositories that don't specify one
     # Options: none, pvc
+    # See examples/repository-pvc-cache.yaml for usage examples
     strategy: none
     # Default PVC name when strategy is pvc
     pvcName: ""
@@ -58,12 +91,15 @@ executorDefaults:
     # Storage class name for the cache PVC (optional)
     storageClassName: ""
 
+# =============================================================================
+# RBAC CONFIGURATION
+# =============================================================================
+# Role-Based Access Control configuration for the operator
+# See examples/values-rbac-presets.yaml for comprehensive examples
 rbac:
-  # RBAC permission preset: minimal (default), scoped, or cluster-admin
-  # minimal: least-privilege namespaced permissions for single-namespace operation
-  # scoped: cross-namespace access for cluster-wide scenarios
-  # cluster-admin: full cluster permissions (use with caution)
-  preset: minimal
+  # RBAC permission preset
+  # See examples/values-rbac-presets.yaml for detailed explanations
+  preset: minimal  # Options: minimal, scoped, cluster-admin
 
   # Enable cluster read permissions for Kopf preflight checks (CRDs, namespaces)
   # Only applies when preset is 'minimal'; ignored for other presets
@@ -85,9 +121,12 @@ rbac:
     # Maps namespace -> list of allowed Secret names
     crossNamespaceSecrets: {}
 
+# =============================================================================
+# NETWORKPOLICY CONFIGURATION
+# =============================================================================
 # NetworkPolicy configuration for enhanced security
 # Controls egress traffic from operator and executor pods
-# See examples/values-networkpolicies.yaml for configuration examples
+# See examples/values-networkpolicies.yaml for comprehensive configuration examples
 networkPolicies:
   # Enable NetworkPolicy creation (requires CNI with NetworkPolicy support)
   enabled: false
@@ -186,4 +225,16 @@ networkPolicies:
   #       - port: 9090
   #         protocol: TCP
 
-# CRDs will be delivered under crds/ in the chart (added later)
+# =============================================================================
+# NOTES
+# =============================================================================
+#
+# CRDs are delivered under crds/ in the chart and installed automatically
+#
+# For production deployments, consider:
+# 1. Using digest pinning for images (see examples/values-image-pinning.yaml)
+# 2. Enabling NetworkPolicies with moderate preset
+# 3. Using minimal RBAC preset for single-namespace deployments
+# 4. Implementing secret access restrictions for enhanced security
+#
+# See the examples/ directory for comprehensive configuration examples
