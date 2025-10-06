@@ -8,9 +8,9 @@ keywords:
   - kubernetes
   - operator
   - ansible
-home: ***REMOVED***/ansible-playbook-operator
+home: https://github.com/kenchrcum/ansible-playbook-operator
 sources:
-  - ***REMOVED***/ansible-playbook-operator
+  - https://github.com/kenchrcum/ansible-playbook-operator
 icon: ""
 maintainers:
   - name: cloud37

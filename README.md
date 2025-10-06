@@ -475,7 +475,7 @@ Structured JSON logs with fields:
 
 ```bash
 # Clone repository
-git clone ***REMOVED***/ansible-playbook-operator
+git clone https://github.com/kenchrcum/ansible-playbook-operator
 cd ansible-playbook-operator
 
 # Install dependencies
@@ -654,8 +654,8 @@ This project is licensed under the **Unlicense**.
 
 ## 🔗 Links
 
-- **Home:** ***REMOVED***/ansible-playbook-operator
-- **Issues:** ***REMOVED***/ansible-playbook-operator/issues
+- **Home:** https://github.com/kenchrcum/ansible-playbook-operator
+- **Issues:** https://github.com/kenchrcum/ansible-playbook-operator/issues
 - **Helm Chart:** `./helm/ansible-playbook-operator`
 
 ## 🙏 Acknowledgments
