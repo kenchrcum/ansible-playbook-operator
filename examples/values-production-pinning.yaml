@@ -5,7 +5,7 @@
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.1"
+    tag: "0.1.2"
     # Production digest - replace with actual digest from your registry
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent

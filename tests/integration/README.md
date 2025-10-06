@@ -53,10 +53,10 @@ kind create cluster --name ansible-operator-test
 
 ```bash
 # Build operator image (if not already built)
-docker build -t kenchrcum/ansible-playbook-operator:0.1.1 .
+docker build -t kenchrcum/ansible-playbook-operator:0.1.2 .
 
 # Load images into kind
-kind load docker-image kenchrcum/ansible-playbook-operator:0.1.1 --name ansible-operator-test
+kind load docker-image kenchrcum/ansible-playbook-operator:0.1.2 --name ansible-operator-test
 kind load docker-image kenchrcum/ansible-runner:latest --name ansible-operator-test
 ```
 
@@ -135,7 +135,7 @@ kind delete cluster --name ansible-operator-test
 Tests use the following defaults:
 - Cluster name: `ansible-operator-test`
 - Operator namespace: `ansible-operator-system`
-- Operator image: `kenchrcum/ansible-playbook-operator:0.1.1`
+- Operator image: `kenchrcum/ansible-playbook-operator:0.1.2`
 - Executor image: `kenchrcum/ansible-runner:latest`
 
 ## Troubleshooting

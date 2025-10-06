@@ -566,7 +566,7 @@ Key configuration options:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.1"
+    tag: "0.1.2"
   resources:
     requests:
       cpu: 100m

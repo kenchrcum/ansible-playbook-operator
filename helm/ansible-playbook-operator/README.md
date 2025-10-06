@@ -59,7 +59,7 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `operator.image.repository` | Operator image repository | `kenchrcum/ansible-playbook-operator` |
-| `operator.image.tag` | Operator image tag | `0.1.1` |
+| `operator.image.tag` | Operator image tag | `0.1.2` |
 | `operator.image.digest` | Operator image digest (takes precedence over tag) | `""` |
 | `operator.image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `operator.resources.requests` | Resource requests | `cpu: 100m, memory: 128Mi` |
@@ -127,7 +127,7 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.1"
+    tag: "0.1.2"
   watch:
     scope: namespace
 
@@ -147,7 +147,7 @@ rbac:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.1"
+    tag: "0.1.2"
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent
   resources:
@@ -192,7 +192,7 @@ networkPolicies:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.1"
+    tag: "0.1.2"
   watch:
     scope: namespace
 
@@ -376,7 +376,7 @@ kubectl get pvc -n ansible-operator-system
 
 1. **Get current image digests**:
    ```bash
-   crane digest kenchrcum/ansible-playbook-operator:0.1.1
+   crane digest kenchrcum/ansible-playbook-operator:0.1.2
    crane digest kenchrcum/ansible-runner:latest
    ```
 
