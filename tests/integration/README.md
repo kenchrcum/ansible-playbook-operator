@@ -143,24 +143,35 @@ Tests use the following defaults:
 ### Common Issues
 
 1. **Kind cluster creation fails**
-   - Ensure Docker is running
-   - Check available disk space
-   - Verify kind installation
+   - Ensure Docker is running: `docker info`
+   - Check available disk space: `df -h`
+   - Verify kind installation: `kind version`
+   - Try without PodSecurity: The script automatically falls back to a simpler configuration
+   - Check system resources: `free -h` and `top`
 
-2. **Image loading fails**
-   - Ensure images are built locally
-   - Check Docker daemon is running
+2. **Kubelet health check timeout**
+   - This is common with newer Kubernetes versions
+   - The script automatically retries with a simpler configuration
+   - Ensure Docker has sufficient resources allocated
+   - Try restarting Docker: `sudo systemctl restart docker`
+
+3. **Image loading fails**
+   - Ensure images are built locally or available for pull
+   - Check Docker daemon is running: `docker info`
    - Verify image names/tags
+   - The script will attempt to build the operator image if missing
 
-3. **Operator deployment fails**
-   - Check Helm installation
-   - Verify CRDs are available
+4. **Operator deployment fails**
+   - Check Helm installation: `helm version`
+   - Verify CRDs are available: `kubectl get crd`
    - Check operator logs: `kubectl logs -n ansible-operator-system deployment/ansible-operator`
+   - Ensure images are loaded: `docker images | grep ansible`
 
-4. **Tests fail**
+5. **Tests fail**
    - Check operator is running: `kubectl get pods -n ansible-operator-system`
    - Verify CRDs are established: `kubectl get crd | grep ansible.cloud37.dev`
    - Check test namespace resources: `kubectl get all -n <test-namespace>`
+   - Check operator logs for errors: `kubectl logs -n ansible-operator-system deployment/ansible-operator`
 
 ### Debug Mode
 

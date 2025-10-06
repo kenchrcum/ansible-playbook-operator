@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 # Default values
 CLUSTER_NAME="ansible-operator-test"
-OPERATOR_IMAGE="kenchrcum/ansible-playbook-operator:0.1.0"
+OPERATOR_IMAGE="kenchrcum/ansible-playbook-operator:dev"
 EXECUTOR_IMAGE="kenchrcum/ansible-runner:latest"
 NAMESPACE="ansible-operator-system"
 VERBOSE=false
@@ -97,6 +97,13 @@ check_prerequisites() {
 
     if ! command -v docker &> /dev/null; then
         missing_tools+=("docker")
+    else
+        # Check if Docker daemon is running
+        if ! docker info &> /dev/null; then
+            log_error "Docker daemon is not running"
+            log_error "Please start Docker and try again"
+            exit 1
+        fi
     fi
 
     if ! command -v python3 &> /dev/null; then
@@ -144,12 +151,38 @@ nodes:
     kind: KubeletConfiguration
     featureGates:
       PodSecurity: true
+    cgroupDriver: systemd
 EOF
 
-    # Create cluster
-    kind create cluster \
+    # Create cluster with timeout
+    log_info "Creating cluster (this may take a few minutes)..."
+    if ! timeout 600 kind create cluster \
         --name "$CLUSTER_NAME" \
-        --config /tmp/kind-config.yaml
+        --config /tmp/kind-config.yaml; then
+        log_warn "Failed to create cluster with PodSecurity, trying without..."
+
+        # Clean up failed cluster
+        kind delete cluster --name "$CLUSTER_NAME" 2>/dev/null || true
+
+        # Try without PodSecurity configuration
+        cat > /tmp/kind-config-simple.yaml << EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+EOF
+
+        log_info "Creating cluster without PodSecurity..."
+        if ! timeout 600 kind create cluster \
+            --name "$CLUSTER_NAME" \
+            --config /tmp/kind-config-simple.yaml; then
+            log_error "Failed to create kind cluster even without PodSecurity"
+            log_error "Please check Docker daemon and system resources"
+            exit 1
+        fi
+
+        rm -f /tmp/kind-config-simple.yaml
+    fi
 
     # Clean up config file
     rm -f /tmp/kind-config.yaml
@@ -167,9 +200,19 @@ load_images() {
         log_info "Loaded operator image: $OPERATOR_IMAGE"
     else
         log_warn "Operator image $OPERATOR_IMAGE not found locally"
-        log_info "Pulling image..."
-        docker pull "$OPERATOR_IMAGE"
-        kind load docker-image "$OPERATOR_IMAGE" --name "$CLUSTER_NAME"
+
+        # Try to build the image first
+        if [ -f "$PROJECT_ROOT/Dockerfile" ]; then
+            log_info "Building operator image..."
+            docker build -t "$OPERATOR_IMAGE" "$PROJECT_ROOT"
+            kind load docker-image "$OPERATOR_IMAGE" --name "$CLUSTER_NAME"
+            log_info "Built and loaded operator image: $OPERATOR_IMAGE"
+        else
+            log_info "Pulling image..."
+            docker pull "$OPERATOR_IMAGE"
+            kind load docker-image "$OPERATOR_IMAGE" --name "$CLUSTER_NAME"
+            log_info "Pulled and loaded operator image: $OPERATOR_IMAGE"
+        fi
     fi
 
     # Load executor image
