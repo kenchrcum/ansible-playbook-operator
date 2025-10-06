@@ -51,7 +51,13 @@ def build_cronjob(
     starting_deadline: int | None = schedule_spec.get("startingDeadlineSeconds")
     concurrency_policy: str | None = schedule_spec.get("concurrencyPolicy")
 
-    pod_security_context = runtime.get("podSecurityContext") or {}
+    pod_security_context = runtime.get("podSecurityContext") or {
+        "runAsNonRoot": True,
+        "runAsUser": 1000,
+        "runAsGroup": 1000,
+        "fsGroup": 1000,
+        "seccompProfile": {"type": "RuntimeDefault"},
+    }
     container_security_context = runtime.get("securityContext") or {
         "runAsUser": 1000,
         "runAsGroup": 1000,

@@ -135,23 +135,12 @@ create_kind_cluster() {
         fi
     fi
 
-    # Create kind cluster configuration
+    # Create simple kind cluster configuration (more reliable)
     cat > /tmp/kind-config.yaml << EOF
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
 - role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: ClusterConfiguration
-    apiServer:
-      extraArgs:
-        "feature-gates": "PodSecurity=true"
-  - |
-    kind: KubeletConfiguration
-    featureGates:
-      PodSecurity: true
-    cgroupDriver: systemd
 EOF
 
     # Create cluster with timeout
@@ -159,29 +148,9 @@ EOF
     if ! timeout 600 kind create cluster \
         --name "$CLUSTER_NAME" \
         --config /tmp/kind-config.yaml; then
-        log_warn "Failed to create cluster with PodSecurity, trying without..."
-
-        # Clean up failed cluster
-        kind delete cluster --name "$CLUSTER_NAME" 2>/dev/null || true
-
-        # Try without PodSecurity configuration
-        cat > /tmp/kind-config-simple.yaml << EOF
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: control-plane
-EOF
-
-        log_info "Creating cluster without PodSecurity..."
-        if ! timeout 600 kind create cluster \
-            --name "$CLUSTER_NAME" \
-            --config /tmp/kind-config-simple.yaml; then
-            log_error "Failed to create kind cluster even without PodSecurity"
-            log_error "Please check Docker daemon and system resources"
-            exit 1
-        fi
-
-        rm -f /tmp/kind-config-simple.yaml
+        log_error "Failed to create kind cluster"
+        log_error "Please check Docker daemon and system resources"
+        exit 1
     fi
 
     # Clean up config file
@@ -245,15 +214,19 @@ deploy_operator() {
         operator_digest="${BASH_REMATCH[1]}"
     fi
 
-    # Deploy with Helm
+    # Deploy with Helm (disable ServiceMonitor for kind cluster, use Never pull policy for loaded images)
     helm install ansible-operator "$PROJECT_ROOT/helm/ansible-playbook-operator" \
         --create-namespace \
         --namespace "$NAMESPACE" \
         --set "operator.image.tag=$operator_tag" \
         --set "operator.image.digest=$operator_digest" \
+        --set "operator.image.pullPolicy=Never" \
         --set "operator.watch.scope=all" \
         --set "operator.metrics.enabled=true" \
+        --set "operator.metrics.serviceMonitor.enabled=false" \
         --set "executorDefaults.image.tag=${EXECUTOR_IMAGE##*:}" \
+        --set "executorDefaults.image.pullPolicy=Never" \
+        --set "rbac.preset=scoped" \
         --wait \
         --timeout 5m
 
@@ -264,10 +237,10 @@ deploy_operator() {
 wait_for_operator() {
     log_info "Waiting for operator to be ready..."
 
-    # Wait for deployment
+    # Wait for deployment (using the correct Helm-generated name)
     kubectl wait --for=condition=available \
         --timeout=300s \
-        deployment/ansible-operator \
+        deployment/ansible-operator-ansible-playbook-operator \
         -n "$NAMESPACE"
 
     # Wait for CRDs
@@ -294,7 +267,10 @@ run_tests() {
     cd "$PROJECT_ROOT"
 
     # Set kubeconfig
-    export KUBECONFIG="$(kind get kubeconfig --name "$CLUSTER_NAME")"
+    local kubeconfig_file="/tmp/kubeconfig-${CLUSTER_NAME}.yaml"
+    kind get kubeconfig --name "$CLUSTER_NAME" > "$kubeconfig_file"
+    export KUBECONFIG="$kubeconfig_file"
+    export KIND_CLUSTER_NAME="$CLUSTER_NAME"
 
     # Install test dependencies
     if [ -f .venv/bin/activate ]; then
@@ -321,6 +297,12 @@ run_tests() {
 
 # Cleanup function
 cleanup() {
+    # Clean up temporary kubeconfig file
+    local kubeconfig_file="/tmp/kubeconfig-${CLUSTER_NAME}.yaml"
+    if [ -f "$kubeconfig_file" ]; then
+        rm -f "$kubeconfig_file"
+    fi
+
     if [ "$CLEANUP" = true ]; then
         log_info "Cleaning up kind cluster..."
         kind delete cluster --name "$CLUSTER_NAME"

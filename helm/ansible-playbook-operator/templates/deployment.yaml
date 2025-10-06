@@ -32,6 +32,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             - >-
+              python -c "import ansible_operator.main; print('Module import successful')" &&
               exec kopf run --standalone
               {{- if eq .Values.operator.watch.scope "all" }} --all-namespaces{{- else }} --namespace {{ .Release.Namespace }}{{- end }}
               -m ansible_operator.main

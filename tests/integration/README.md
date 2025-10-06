@@ -151,7 +151,7 @@ Tests use the following defaults:
 
 2. **Kubelet health check timeout**
    - This is common with newer Kubernetes versions
-   - The script automatically retries with a simpler configuration
+   - The script now uses a simpler cluster configuration by default
    - Ensure Docker has sufficient resources allocated
    - Try restarting Docker: `sudo systemctl restart docker`
 
@@ -164,14 +164,15 @@ Tests use the following defaults:
 4. **Operator deployment fails**
    - Check Helm installation: `helm version`
    - Verify CRDs are available: `kubectl get crd`
-   - Check operator logs: `kubectl logs -n ansible-operator-system deployment/ansible-operator`
+   - Check operator logs: `kubectl logs -n ansible-operator-system deployment/ansible-operator-ansible-playbook-operator`
    - Ensure images are loaded: `docker images | grep ansible`
+   - ServiceMonitor errors: The script disables ServiceMonitor for kind clusters
 
 5. **Tests fail**
    - Check operator is running: `kubectl get pods -n ansible-operator-system`
    - Verify CRDs are established: `kubectl get crd | grep ansible.cloud37.dev`
    - Check test namespace resources: `kubectl get all -n <test-namespace>`
-   - Check operator logs for errors: `kubectl logs -n ansible-operator-system deployment/ansible-operator`
+   - Check operator logs for errors: `kubectl logs -n ansible-operator-system deployment/ansible-operator-ansible-playbook-operator`
 
 ### Debug Mode
 
@@ -194,7 +195,7 @@ Then manually inspect:
 ```bash
 export KUBECONFIG="$(kind get kubeconfig --name ansible-operator-test)"
 kubectl get all -A
-kubectl logs -n ansible-operator-system deployment/ansible-operator
+kubectl logs -n ansible-operator-system deployment/ansible-operator-ansible-playbook-operator
 ```
 
 ## Security Testing

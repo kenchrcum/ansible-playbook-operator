@@ -156,6 +156,9 @@ def build_connectivity_probe_job(
                     "restartPolicy": "Never",
                     "securityContext": {
                         "runAsNonRoot": True,
+                        "runAsUser": 1000,
+                        "runAsGroup": 1000,
+                        "fsGroup": 1000,
                         "seccompProfile": {"type": "RuntimeDefault"},
                     },
                     **(
