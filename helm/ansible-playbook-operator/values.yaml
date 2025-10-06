@@ -69,4 +69,20 @@ rbac:
   # Only applies when preset is 'minimal'; ignored for other presets
   clusterRead: true
 
+  # Secret access restriction (optional)
+  # When enabled, restricts Secret access to only explicitly referenced names
+  # This provides enhanced security but requires operational overhead to maintain
+  # See examples/values-secret-restriction.yaml for configuration examples
+  secretRestriction:
+    # Enable Secret access restriction using resourceNames
+    enabled: false
+    # List of Secret names the operator is allowed to access
+    # When empty, operator can access all Secrets in namespace (default behavior)
+    # When populated, operator can only access Secrets listed here
+    # Note: This requires manual maintenance when new Secrets are referenced
+    allowedSecrets: []
+    # Cross-namespace Secret access (only applies when preset is 'scoped' or 'cluster-admin')
+    # Maps namespace -> list of allowed Secret names
+    crossNamespaceSecrets: {}
+
 # CRDs will be delivered under crds/ in the chart (added later)

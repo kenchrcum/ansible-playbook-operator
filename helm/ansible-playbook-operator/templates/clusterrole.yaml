@@ -27,6 +27,10 @@ rules:
   - apiGroups: [""]
     resources: ["namespaces", "secrets", "configmaps"]
     verbs: ["get", "list", "watch"]
+{{- if and .Values.rbac.secretRestriction.enabled .Values.rbac.secretRestriction.crossNamespaceSecrets }}
+    # Cross-namespace Secret access is handled via separate RoleBindings per namespace
+    # See executor-rolebinding.yaml for implementation
+{{- end }}
   - apiGroups: ["ansible.cloud37.dev"]
     resources: ["repositories", "playbooks", "schedules"]
     verbs: ["get", "list", "watch"]

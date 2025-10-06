@@ -36,6 +36,9 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "list", "watch"]
+{{- if and .Values.rbac.secretRestriction.enabled .Values.rbac.secretRestriction.allowedSecrets }}
+    resourceNames: {{ toYaml .Values.rbac.secretRestriction.allowedSecrets | nindent 6 }}
+{{- end }}
   - apiGroups: ["batch"]
     resources: ["jobs", "cronjobs"]
     verbs: ["get", "list", "watch", "create", "patch", "update", "delete"]

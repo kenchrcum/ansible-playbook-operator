@@ -33,7 +33,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Helm RBAC presets: implement `rbac.preset` values `minimal` (default), `scoped`, `cluster-admin` with clear, least-privilege rules.
 - [x] Operator watch scope: when `operator.watch.scope=all`, provide ClusterRole for CRDs and namespaced resources read as needed; keep writes namespaced.
 - [x] Executor identity: support separate ServiceAccount for executor Jobs, templated in Helm, with minimal permissions for target scenarios.
-- [ ] Secret access: restrict Secret reads to referenced names (use `resourceNames` where feasible) and document limitations.
+- [x] Secret access: restrict Secret reads to referenced names (use `resourceNames` where feasible) and document limitations.
 - [ ] NetworkPolicies: optional egress restrictions to Git endpoints and required registries; example presets in chart values.
 - [x] Image pinning: pin operator and default executor images by digest for releases and CI; document upgrade flow.
 

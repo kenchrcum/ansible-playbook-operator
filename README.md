@@ -411,6 +411,12 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
 2. **File mounts** — Mount Secret keys as files (e.g., SSH keys, certificates)
 3. **Vault passwords** — Ansible Vault password file
 
+**Secret Access Control:**
+- **Default**: Operator can access all Secrets in its namespace
+- **Optional Restriction**: Use `rbac.secretRestriction.enabled: true` to limit access to specific Secrets
+- **Cross-namespace**: Supported with `scoped` or `cluster-admin` presets
+- See [examples/values-secret-restriction.yaml](examples/values-secret-restriction.yaml) for configuration examples
+
 **Best Practices:**
 - Use `serviceAccountName` in Playbook to run Jobs with least-privilege SAs
 - Never log secrets (the operator redacts them)

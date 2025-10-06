@@ -132,6 +132,8 @@ rbac:
 #    - Use dedicated secrets for different namespaces when possible
 #    - Rotate secrets regularly
 #    - Consider using external secret management systems
+#    - Optional: Enable Secret access restriction using resourceNames
+#      See examples/values-secret-restriction.yaml for configuration examples
 
 # 5. Regular Security Reviews
 #    - Review RBAC permissions quarterly
