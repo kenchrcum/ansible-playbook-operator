@@ -58,7 +58,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 ### Testing
 - [x] Unit: CRD schema defaults/validation, command rendering (inventory, extra vars, secret injection, vault), git options (ssh/token, known_hosts), security defaults merging.
 - [x] Unit: SSA/adoption behaviors (owned field diffs), status condition transitions, event emission coverage.
-- [ ] Integration (kind): deploy operator, create CRs → CronJob materialization, Job success/failure paths; auth matrix (SSH with pinned known_hosts, HTTPS token); pod security defaults enforced.
+- [x] Integration (kind): deploy operator, create CRs → CronJob materialization, Job success/failure paths; auth matrix (SSH with pinned known_hosts, HTTPS token); pod security defaults enforced.
 - [ ] Concurrency/race: overlapping schedules with `Forbid/Replace`, many schedules using random macros, operator restarts (`on.resume`).
 
 ### CI/CD and Release
