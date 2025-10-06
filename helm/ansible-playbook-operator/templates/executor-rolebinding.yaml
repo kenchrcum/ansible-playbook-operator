@@ -1,0 +1,19 @@
+{{- if .Values.executorDefaults.serviceAccount.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ansible-playbook-operator.executorServiceAccountName" . }}
+  labels:
+    app.kubernetes.io/name: ansible-playbook-operator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: executor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "ansible-playbook-operator.executorServiceAccountName" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "ansible-playbook-operator.executorServiceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

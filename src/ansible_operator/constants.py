@@ -21,3 +21,6 @@ COND_BLOCKED_BY_CONCURRENCY = "BlockedByConcurrency"
 # Annotation keys
 ANNOTATION_RUN_NOW = f"{API_GROUP}/run-now"
 ANNOTATION_OWNER_UID = f"{API_GROUP}/owner-uid"
+
+# Configuration constants
+EXECUTOR_SERVICE_ACCOUNT_ENV = "EXECUTOR_SERVICE_ACCOUNT"

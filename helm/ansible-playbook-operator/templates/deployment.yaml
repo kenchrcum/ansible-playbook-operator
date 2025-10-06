@@ -44,6 +44,10 @@ spec:
               value: {{ ternary "true" "false" .Values.operator.leaderElection | quote }}
             - name: WATCH_SCOPE
               value: {{ .Values.operator.watch.scope | quote }}
+            {{- if .Values.executorDefaults.serviceAccount.create }}
+            - name: EXECUTOR_SERVICE_ACCOUNT
+              value: {{ include "ansible-playbook-operator.executorServiceAccountName" . | quote }}
+            {{- end }}
           ports:
             - name: http-metrics
               containerPort: 8080

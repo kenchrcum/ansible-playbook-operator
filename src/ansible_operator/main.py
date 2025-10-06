@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from contextlib import suppress
 from datetime import datetime, timezone
 from time import monotonic
@@ -21,6 +22,7 @@ from .constants import (
     COND_BLOCKED_BY_CONCURRENCY,
     COND_CLONE_READY,
     COND_READY,
+    EXECUTOR_SERVICE_ACCOUNT_ENV,
     FINALIZER,
     LABEL_MANAGED_BY,
     LABEL_OWNER_KIND,
@@ -34,6 +36,11 @@ from .services.manual_run import manual_run_service
 from .utils.schedule import compute_computed_schedule
 
 FINALIZER_REPOSITORY = f"{API_GROUP}/finalizer"
+
+
+def _get_executor_service_account() -> str | None:
+    """Get the executor ServiceAccount name from environment variable."""
+    return os.getenv(EXECUTOR_SERVICE_ACCOUNT_ENV)
 
 
 def _can_safely_adopt_cronjob(
@@ -486,6 +493,7 @@ def reconcile_repository(
             namespace=namespace,
             repository_spec=spec,
             owner_uid=uid,
+            executor_service_account=_get_executor_service_account(),
         )
 
         batch_api = client.BatchV1Api()
@@ -1243,6 +1251,7 @@ def reconcile_schedule(
             computed_schedule=computed,
             playbook=playbook_obj,
             repository=repository_obj,
+            executor_service_account=_get_executor_service_account(),
             known_hosts_available=known_hosts_available,
             schedule_spec=spec,
             owner_uid=uid,

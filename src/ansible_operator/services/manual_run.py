@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +14,7 @@ from ..constants import (
     API_GROUP,
     API_GROUP_VERSION,
     ANNOTATION_RUN_NOW,
+    EXECUTOR_SERVICE_ACCOUNT_ENV,
     LABEL_MANAGED_BY,
     LABEL_OWNER_KIND,
     LABEL_OWNER_NAME,
@@ -62,6 +64,7 @@ class ManualRunService:
             owner_api_version=f"{API_GROUP}/v1alpha1",
             owner_kind="Playbook",
             owner_name=playbook_name,
+            executor_service_account=os.getenv(EXECUTOR_SERVICE_ACCOUNT_ENV),
         )
 
         # Create the Job

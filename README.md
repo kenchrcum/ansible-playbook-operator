@@ -42,6 +42,7 @@ The Ansible Playbook Operator brings Ansible automation directly into your Kuber
 🎨 **Flexible Execution**
 - Custom executor images (default: `kenchrcum/ansible-runner`)
 - Resource limits, node selectors, tolerations, affinity rules
+- Separate executor ServiceAccount with configurable RBAC presets for enhanced security isolation
 - Service account override for least-privilege job execution
 - Optional PVC-backed cache for `~/.ansible` collections/roles
 - Support for secrets, extra vars, inventory paths, and ansible.cfg
@@ -367,6 +368,32 @@ Configure via Helm values:
 - **`scoped`** — Extended to specific resource types and namespaces
 - **`cluster-admin`** (opt-in) — Full cluster access (use with caution)
 
+### Executor ServiceAccount
+
+The operator creates a separate ServiceAccount for executor Jobs by default, providing enhanced security isolation:
+
+```yaml
+executorDefaults:
+  serviceAccount:
+    create: true
+    name: ""  # Auto-generated as {release-name}-executor
+    rbacPreset: minimal  # minimal, scoped, or cluster-admin
+```
+
+**Benefits:**
+- **Security isolation** — Executor pods use a different identity than the operator
+- **Minimal permissions** — Executor ServiceAccount has only the permissions needed for Ansible execution
+- **Audit trail** — Clear separation between operator and executor activities
+- **Configurable RBAC** — Choose appropriate permission level for your use case
+
+**RBAC Presets for Executor:**
+
+- **`minimal`** (default) — Read-only access to pods, services, configmaps, secrets; can create events
+- **`scoped`** — Extended permissions for cross-namespace operations and resource management
+- **`cluster-admin`** — Full cluster permissions (use with extreme caution)
+
+See `examples/values-executor-serviceaccount.yaml` for detailed configurations.
+
 ```bash
 helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
   --set rbac.preset=minimal
@@ -553,6 +580,13 @@ executorDefaults:
   image:
     repository: kenchrcum/ansible-runner
     tag: latest
+  serviceAccount:
+    # Whether to create a separate ServiceAccount for executor Jobs
+    create: true
+    # Name of the executor ServiceAccount (auto-generated if empty)
+    name: ""
+    # RBAC preset for executor permissions: minimal (default), scoped, cluster-admin
+    rbacPreset: minimal
   cache:
     strategy: none  # Default cache strategy for repositories
     pvcName: ""  # Default PVC name when strategy is pvc

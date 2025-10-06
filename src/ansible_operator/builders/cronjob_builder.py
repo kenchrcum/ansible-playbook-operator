@@ -27,6 +27,7 @@ def build_cronjob(
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
     image_digest: str | None = None,
+    executor_service_account: str | None = None,
 ) -> dict[str, Any]:
     """Render a CronJob manifest from Playbook and Schedule specs.
 
@@ -393,6 +394,11 @@ def build_cronjob(
                             **(
                                 {"serviceAccountName": service_account_name}
                                 if service_account_name
+                                else {}
+                            ),
+                            **(
+                                {"serviceAccountName": executor_service_account}
+                                if executor_service_account and not service_account_name
                                 else {}
                             ),
                             **(

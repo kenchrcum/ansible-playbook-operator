@@ -23,6 +23,7 @@ def build_connectivity_probe_job(
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
     image_digest: str | None = None,
+    executor_service_account: str | None = None,
 ) -> dict[str, Any]:
     """Render a Job manifest for testing repository connectivity via git ls-remote.
 
@@ -157,6 +158,11 @@ def build_connectivity_probe_job(
                         "runAsNonRoot": True,
                         "seccompProfile": {"type": "RuntimeDefault"},
                     },
+                    **(
+                        {"serviceAccountName": executor_service_account}
+                        if executor_service_account
+                        else {}
+                    ),
                     "containers": [
                         {
                             "name": "connectivity-probe",
@@ -194,6 +200,7 @@ def build_manual_run_job(
     owner_name: str | None = None,
     image_default: str = "kenchrcum/ansible-runner:latest",
     image_digest: str | None = None,
+    executor_service_account: str | None = None,
 ) -> dict[str, Any]:
     """Render a Job manifest for manual Playbook execution.
 
@@ -375,6 +382,11 @@ def build_manual_run_job(
                         "runAsGroup": 1000,
                         "fsGroup": 1000,
                     },
+                    **(
+                        {"serviceAccountName": executor_service_account}
+                        if executor_service_account
+                        else {}
+                    ),
                     "containers": [
                         {
                             "name": "ansible-runner",

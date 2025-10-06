@@ -35,6 +35,16 @@ executorDefaults:
     # Format: sha256:abc123def456...
     digest: ""
     pullPolicy: IfNotPresent
+  serviceAccount:
+    # Whether to create a separate ServiceAccount for executor Jobs
+    create: true
+    # Name of the executor ServiceAccount (auto-generated if empty)
+    name: ""
+    # RBAC preset for executor permissions: minimal (default), scoped, cluster-admin
+    # minimal: least-privilege permissions for basic Ansible execution
+    # scoped: extended permissions for cross-namespace operations
+    # cluster-admin: full cluster permissions (use with extreme caution)
+    rbacPreset: minimal
   cache:
     # Default cache strategy for repositories that don't specify one
     # Options: none, pvc
