@@ -18,6 +18,7 @@ description: "Guidelines for testing, documentation, and quality gates."
 - Keep `architecture/development-plan.md` as a living design document. Update it before implementing significant changes.
 - Examples in the `examples/` directory must be runnable in `kind` or `minikube` and follow security defaults.
 - Update `architecture/TODO.md` when completing tasks with `[x]` format.
+- Maintain backward compatibility documentation in [architecture/backward-compatibility-policy.md](mdc:architecture/backward-compatibility-policy.md).
 
 ## Quality Gates
 - New features must include metrics, events, and status conditions.

@@ -41,3 +41,4 @@ description: "Guidelines for working with Kubernetes resources and Helm charts."
 - CRD changes must follow Kubernetes API versioning conventions.
 - Add new fields, but do not remove or break existing ones.
 - Create a new version (e.g., `v1beta1`) for breaking changes and provide a conversion webhook or migration documentation.
+- See [backward-compatibility.mdc](mdc:.cursor/rules/backward-compatibility.mdc) for comprehensive policy and [architecture/backward-compatibility-policy.md](mdc:architecture/backward-compatibility-policy.md) for detailed guidelines.
