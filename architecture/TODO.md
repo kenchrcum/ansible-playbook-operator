@@ -34,7 +34,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] Operator watch scope: when `operator.watch.scope=all`, provide ClusterRole for CRDs and namespaced resources read as needed; keep writes namespaced.
 - [x] Executor identity: support separate ServiceAccount for executor Jobs, templated in Helm, with minimal permissions for target scenarios.
 - [x] Secret access: restrict Secret reads to referenced names (use `resourceNames` where feasible) and document limitations.
-- [ ] NetworkPolicies: optional egress restrictions to Git endpoints and required registries; example presets in chart values.
+- [x] NetworkPolicies: optional egress restrictions to Git endpoints and required registries; example presets in chart values.
 - [x] Image pinning: pin operator and default executor images by digest for releases and CI; document upgrade flow.
 
 ### Helm Chart Improvements
@@ -42,7 +42,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 - [x] ServiceMonitor: allow additional labels/namespace selectors; document Prometheus Operator expectations.
 - [x] Multi-namespace examples: provide example values for `namespace` vs `all` watch; include RBAC presets and trade-offs.
 - [x] Provide optional PVC cache values and templates for executor cache volume.
-- [ ] Add optional NetworkPolicy manifests and example values.
+- [x] Add optional NetworkPolicy manifests and example values.
 - [x] Hardening: ensure Deployment, ServiceAccount, and RBAC reflect least-privilege and security context defaults; add PSA labels guidance.
 
 ### CRDs

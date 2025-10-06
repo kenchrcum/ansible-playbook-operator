@@ -1,0 +1,393 @@
+# NetworkPolicy Configuration Examples
+# This file demonstrates all available NetworkPolicy presets and their use cases
+
+# =============================================================================
+# PRESET 1: RESTRICTIVE (Maximum Security)
+# =============================================================================
+# Use this for maximum security with minimal network access
+# Only allows egress to Git endpoints and container registries
+
+networkPolicies:
+  enabled: true
+  preset: restrictive
+
+  git:
+    endpoints:
+      - github.com
+      - gitlab.com
+      - bitbucket.org
+      - gitea.com
+      - gitee.com
+    custom: []
+    ports:
+      - port: 22
+        protocol: TCP
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+
+  registries:
+    endpoints:
+      - docker.io
+      - registry-1.docker.io
+      - gcr.io
+      - k8s.gcr.io
+      - quay.io
+      - registry.k8s.io
+      - ghcr.io
+    custom: []
+    ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+
+  dns:
+    enabled: false  # Disabled in restrictive mode
+
+  kubernetes:
+    enabled: false  # Disabled in restrictive mode
+
+  additionalRules: []
+
+# Security Level: MAXIMUM
+# Use Cases: High-security environments, air-gapped deployments
+# Limitations: May break some Ansible operations that require DNS/K8s API access
+
+# =============================================================================
+# PRESET 2: MODERATE (Recommended for Production)
+# =============================================================================
+# Use this for balanced security and functionality
+# Allows DNS, Git endpoints, registries, and Kubernetes API access
+
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+#
+#   git:
+#     endpoints:
+#       - github.com
+#       - gitlab.com
+#       - bitbucket.org
+#       - gitea.com
+#       - gitee.com
+#     custom: []
+#     ports:
+#       - port: 22
+#         protocol: TCP
+#       - port: 443
+#         protocol: TCP
+#       - port: 80
+#         protocol: TCP
+#
+#   registries:
+#     endpoints:
+#       - docker.io
+#       - registry-1.docker.io
+#       - gcr.io
+#       - k8s.gcr.io
+#       - quay.io
+#       - registry.k8s.io
+#       - ghcr.io
+#     custom: []
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#       - port: 80
+#         protocol: TCP
+#
+#   dns:
+#     enabled: true
+#     endpoints:
+#       - 10.96.0.10  # kube-dns default
+#       - 169.254.20.10  # CoreDNS alternative
+#     ports:
+#       - port: 53
+#         protocol: UDP
+#       - port: 53
+#         protocol: TCP
+#
+#   kubernetes:
+#     enabled: true
+#     endpoints:
+#       - kubernetes.default.svc.cluster.local
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#
+#   additionalRules: []
+
+# Security Level: HIGH
+# Use Cases: Production environments, most Ansible operations
+# Limitations: None significant for typical use cases
+
+# =============================================================================
+# PRESET 3: PERMISSIVE (Development Only)
+# =============================================================================
+# Use this only for development and testing
+# Allows all egress traffic (not recommended for production)
+
+# networkPolicies:
+#   enabled: true
+#   preset: permissive
+#
+#   git:
+#     endpoints: []
+#     custom: []
+#     ports: []
+#
+#   registries:
+#     endpoints: []
+#     custom: []
+#     ports: []
+#
+#   dns:
+#     enabled: false
+#     endpoints: []
+#     ports: []
+#
+#   kubernetes:
+#     enabled: false
+#     endpoints: []
+#     ports: []
+#
+#   additionalRules: []
+
+# Security Level: LOW
+# Use Cases: Development, testing, troubleshooting
+# Limitations: Maximum security risk, violates least-privilege principle
+
+# =============================================================================
+# PRESET 4: CUSTOM ENDPOINTS
+# =============================================================================
+# Use this for environments with custom Git servers or registries
+
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+#
+#   git:
+#     endpoints:
+#       - github.com
+#       - gitlab.com
+#     custom:
+#       - git.internal.company.com
+#       - 192.168.1.100
+#     ports:
+#       - port: 22
+#         protocol: TCP
+#       - port: 443
+#         protocol: TCP
+#
+#   registries:
+#     endpoints:
+#       - docker.io
+#       - registry-1.docker.io
+#     custom:
+#       - registry.internal.company.com
+#       - 192.168.1.200
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#
+#   dns:
+#     enabled: true
+#     endpoints:
+#       - 10.96.0.10
+#       - 8.8.8.8  # External DNS
+#     ports:
+#       - port: 53
+#         protocol: UDP
+#       - port: 53
+#         protocol: TCP
+#
+#   kubernetes:
+#     enabled: true
+#     endpoints:
+#       - kubernetes.default.svc.cluster.local
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#
+#   additionalRules: []
+
+# =============================================================================
+# PRESET 5: ADDITIONAL RULES
+# =============================================================================
+# Use this for environments requiring access to additional services
+
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+#
+#   git:
+#     endpoints:
+#       - github.com
+#       - gitlab.com
+#     custom: []
+#     ports:
+#       - port: 22
+#         protocol: TCP
+#       - port: 443
+#         protocol: TCP
+#
+#   registries:
+#     endpoints:
+#       - docker.io
+#       - registry-1.docker.io
+#     custom: []
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#
+#   dns:
+#     enabled: true
+#     endpoints:
+#       - 10.96.0.10
+#     ports:
+#       - port: 53
+#         protocol: UDP
+#       - port: 53
+#         protocol: TCP
+#
+#   kubernetes:
+#     enabled: true
+#     endpoints:
+#       - kubernetes.default.svc.cluster.local
+#     ports:
+#       - port: 443
+#         protocol: TCP
+#
+#   # Additional rules for monitoring, logging, or other services
+#   additionalRules:
+#     - to:
+#         - namespaceSelector:
+#             matchLabels:
+#               name: monitoring
+#         - podSelector:
+#           matchLabels:
+#             app: prometheus
+#       ports:
+#         - port: 9090
+#           protocol: TCP
+#     - to:
+#         - namespaceSelector:
+#             matchLabels:
+#               name: logging
+#         - podSelector:
+#           matchLabels:
+#             app: elasticsearch
+#       ports:
+#         - port: 9200
+#           protocol: TCP
+
+# =============================================================================
+# RECOMMENDED CONFIGURATIONS BY USE CASE
+# =============================================================================
+
+# Development Environment (Moderate Security)
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+
+# Production Single-Namespace (High Security)
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+
+# Production High-Security (Maximum Security)
+# networkPolicies:
+#   enabled: true
+#   preset: restrictive
+
+# Air-Gapped Environment (Custom Endpoints)
+# networkPolicies:
+#   enabled: true
+#   preset: moderate
+#   git:
+#     endpoints: []
+#     custom:
+#       - git.internal.company.com
+#   registries:
+#     endpoints: []
+#     custom:
+#       - registry.internal.company.com
+
+# Development/Testing (Permissive - Not Recommended)
+# networkPolicies:
+#   enabled: true
+#   preset: permissive
+
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+
+# 1. Least Privilege Principle
+#    - Always use the most restrictive preset that meets your requirements
+#    - Start with 'moderate' and tighten as needed
+#    - Regularly audit network access and remove unused endpoints
+
+# 2. Endpoint Validation
+#    - Verify all Git endpoints are legitimate and necessary
+#    - Use IP addresses instead of hostnames when possible for additional security
+#    - Regularly update endpoint lists to remove unused entries
+
+# 3. Port Restrictions
+#    - Only allow necessary ports (22 for SSH, 443 for HTTPS)
+#    - Avoid allowing port 80 unless specifically required
+#    - Consider using non-standard ports for internal services
+
+# 4. DNS Considerations
+#    - DNS is required for most operations but increases attack surface
+#    - Consider using specific IP addresses instead of hostnames when possible
+#    - Monitor DNS queries for unusual patterns
+
+# 5. Kubernetes API Access
+#    - Required for operator functionality but increases security risk
+#    - Ensure RBAC permissions are properly configured
+#    - Monitor API access patterns
+
+# 6. Additional Rules
+#    - Use additional rules sparingly and document business justification
+#    - Regularly review and remove unused rules
+#    - Test rules in staging before production deployment
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Common NetworkPolicy Issues:
+# - "Connection refused" -> Check if endpoint is allowed in NetworkPolicy
+# - "DNS resolution failed" -> Check if DNS is enabled and endpoints are correct
+# - "Kubernetes API access denied" -> Check if Kubernetes API access is enabled
+# - "Git clone failed" -> Check if Git endpoints and ports are allowed
+
+# Debug Steps:
+# 1. Check NetworkPolicy status: kubectl get networkpolicies
+# 2. Verify pod labels match NetworkPolicy selectors
+# 3. Test connectivity from within pods: kubectl exec -it <pod> -- nc -zv <host> <port>
+# 4. Check CNI logs for NetworkPolicy enforcement
+# 5. Review pod logs for network-related errors
+
+# =============================================================================
+# MIGRATION GUIDANCE
+# =============================================================================
+
+# From No NetworkPolicies to Restrictive:
+# 1. Start with moderate preset to ensure functionality
+# 2. Test all Ansible operations
+# 3. Gradually tighten to restrictive preset
+# 4. Monitor for any connectivity issues
+
+# From Permissive to Moderate:
+# 1. Update preset from 'permissive' to 'moderate'
+# 2. Test in staging environment first
+# 3. Monitor for any connectivity issues
+# 4. Document any required additional rules
+
+# Adding Custom Endpoints:
+# 1. Add endpoints to appropriate custom arrays
+# 2. Test connectivity from within pods
+# 3. Verify DNS resolution if using hostnames
+# 4. Document business justification for each endpoint

@@ -85,4 +85,105 @@ rbac:
     # Maps namespace -> list of allowed Secret names
     crossNamespaceSecrets: {}
 
+# NetworkPolicy configuration for enhanced security
+# Controls egress traffic from operator and executor pods
+# See examples/values-networkpolicies.yaml for configuration examples
+networkPolicies:
+  # Enable NetworkPolicy creation (requires CNI with NetworkPolicy support)
+  enabled: false
+
+  # NetworkPolicy preset: none, restrictive, moderate, permissive
+  # none: No NetworkPolicies created (default)
+  # restrictive: Only allow egress to Git endpoints and container registries
+  # moderate: Allow DNS, Git endpoints, registries, and Kubernetes API
+  # permissive: Allow all egress (not recommended for production)
+  preset: none
+
+  # Git endpoints configuration
+  git:
+    # List of Git hostnames/IPs to allow egress to
+    # Common Git providers are pre-configured but can be customized
+    endpoints:
+      - github.com
+      - gitlab.com
+      - bitbucket.org
+      - gitea.com
+      - gitee.com
+    # Custom Git endpoints (additional to the defaults above)
+    custom: []
+    # Ports to allow for Git traffic (default: 22 for SSH, 443 for HTTPS)
+    ports:
+      - port: 22
+        protocol: TCP
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+
+  # Container registry endpoints configuration
+  registries:
+    # List of registry hostnames/IPs to allow egress to
+    # Common registries are pre-configured but can be customized
+    endpoints:
+      - docker.io
+      - registry-1.docker.io
+      - gcr.io
+      - k8s.gcr.io
+      - quay.io
+      - registry.k8s.io
+      - ghcr.io
+    # Custom registry endpoints (additional to the defaults above)
+    custom: []
+    # Ports to allow for registry traffic (default: 443 for HTTPS)
+    ports:
+      - port: 443
+        protocol: TCP
+      - port: 80
+        protocol: TCP
+
+  # DNS configuration
+  dns:
+    # Allow DNS resolution (required for most operations)
+    enabled: true
+    # DNS server endpoints (usually cluster DNS)
+    endpoints:
+      - 10.96.0.10  # kube-dns default
+      - 169.254.20.10  # CoreDNS alternative
+    # DNS ports
+    ports:
+      - port: 53
+        protocol: UDP
+      - port: 53
+        protocol: TCP
+
+  # Kubernetes API server access
+  kubernetes:
+    # Allow access to Kubernetes API server
+    enabled: true
+    # API server endpoints (usually cluster IP)
+    endpoints:
+      - kubernetes.default.svc.cluster.local
+    # API server ports
+    ports:
+      - port: 443
+        protocol: TCP
+
+  # Additional egress rules (custom)
+  # List of additional egress rules for specific use cases
+  # Each rule should specify namespaceSelector, podSelector, and ports
+  additionalRules: []
+
+  # Example additional rules:
+  # additionalRules:
+  #   - to:
+  #       - namespaceSelector:
+  #           matchLabels:
+  #             name: monitoring
+  #       - podSelector:
+  #           matchLabels:
+  #             app: prometheus
+  #     ports:
+  #       - port: 9090
+  #         protocol: TCP
+
 # CRDs will be delivered under crds/ in the chart (added later)
