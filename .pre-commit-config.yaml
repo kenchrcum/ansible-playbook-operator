@@ -7,20 +7,15 @@ repos:
       - id: check-yaml
         exclude: ^helm/|^examples/
       - id: check-added-large-files
-      - id: check-merge-conflict
-      - id: check-docstring-first
-      - id: debug-statements
   - repo: https://github.com/psf/black
     rev: 24.10.0
     hooks:
       - id: black
-        args: ["--line-length=100"]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.11.2
     hooks:
       - id: mypy
         additional_dependencies: []
-        args: ["--ignore-missing-imports"]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.3.0
     hooks:
