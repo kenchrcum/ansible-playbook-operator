@@ -1,0 +1,170 @@
+# Comprehensive RBAC Presets Configuration Examples
+# This file demonstrates all available RBAC presets and their use cases
+
+# =============================================================================
+# PRESET 1: MINIMAL (Default - Recommended for Production)
+# =============================================================================
+# Use this for single-namespace deployments with maximum security isolation
+
+operator:
+  watch:
+    scope: namespace
+
+rbac:
+  preset: minimal
+  clusterRead: true
+
+# Generated Permissions:
+# - Namespace: events, pods, secrets, jobs, cronjobs, ansible.cloud37.dev resources
+# - Cluster: read-only access to CRDs and namespaces (for Kopf preflight)
+#
+# Security Level: HIGH
+# Use Cases: Single-tenant, development, strict security requirements
+# Limitations: Single namespace only, no cross-namespace access
+
+# =============================================================================
+# PRESET 2: SCOPED (Recommended for Cluster-Wide Watch)
+# =============================================================================
+# Use this for cluster-wide deployments with controlled cross-namespace access
+
+# operator:
+#   watch:
+#     scope: all
+#
+# rbac:
+#   preset: scoped
+#   clusterRead: true
+
+# Generated Permissions:
+# - Cluster: read access to CRDs, namespaces, secrets, configmaps
+# - Cluster: read access to ansible.cloud37.dev resources across all namespaces
+# - Namespace: full access to events, pods, jobs, cronjobs, ansible.cloud37.dev resources
+#
+# Security Level: MEDIUM
+# Use Cases: Cluster-wide deployments, centralized management
+# Limitations: Can read secrets/configmaps across namespaces
+
+# =============================================================================
+# PRESET 3: CLUSTER-ADMIN (Use with Extreme Caution)
+# =============================================================================
+# Use this only when other presets don't meet requirements
+
+# operator:
+#   watch:
+#     scope: all
+#
+# rbac:
+#   preset: cluster-admin
+#   clusterRead: true
+
+# Generated Permissions:
+# - Cluster: FULL access to ALL resources and verbs
+# - Namespace: FULL access to ALL resources and verbs
+#
+# Security Level: LOW
+# Use Cases: Development/testing, highly trusted environments
+# Limitations: Maximum security risk, violates least-privilege principle
+
+# =============================================================================
+# OPERATOR WATCH SCOPE CONFIGURATION
+# =============================================================================
+
+# Watch scope configuration is shown in each preset example above
+# - namespace: For single-namespace deployments (minimal preset)
+# - all: For cluster-wide deployments (scoped/cluster-admin presets)
+
+# =============================================================================
+# RECOMMENDED CONFIGURATIONS BY USE CASE
+# =============================================================================
+
+# Development Environment (Single Namespace)
+# operator:
+#   watch:
+#     scope: namespace
+# rbac:
+#   preset: minimal
+#   clusterRead: true
+
+# Production Single-Namespace (Isolated)
+# operator:
+#   watch:
+#     scope: namespace
+# rbac:
+#   preset: minimal
+#   clusterRead: true
+
+# Production Centralized (Cluster-Wide)
+# operator:
+#   watch:
+#     scope: all
+# rbac:
+#   preset: scoped
+#   clusterRead: true
+
+# Development/Testing (Maximum Flexibility)
+# operator:
+#   watch:
+#     scope: all
+# rbac:
+#   preset: cluster-admin
+#   clusterRead: true
+
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+
+# 1. Least Privilege Principle
+#    - Always use the most restrictive preset that meets your requirements
+#    - Start with 'minimal' and upgrade only if necessary
+#    - Regularly audit permissions and remove unused ones
+
+# 2. Network Policies
+#    - Implement network policies to limit operator network access
+#    - Restrict egress to only required endpoints (Git, registries)
+#    - Use dedicated service accounts for different security contexts
+
+# 3. Monitoring and Auditing
+#    - Enable audit logging for all operator actions
+#    - Monitor for unusual access patterns
+#    - Set up alerts for privilege escalation attempts
+
+# 4. Secret Management
+#    - Use dedicated secrets for different namespaces when possible
+#    - Rotate secrets regularly
+#    - Consider using external secret management systems
+
+# 5. Regular Security Reviews
+#    - Review RBAC permissions quarterly
+#    - Test least-privilege configurations in staging
+#    - Document any deviations from security standards
+
+# =============================================================================
+# MIGRATION GUIDANCE
+# =============================================================================
+
+# From Minimal to Scoped:
+# 1. Update rbac.preset from 'minimal' to 'scoped'
+# 2. Update operator.watch.scope from 'namespace' to 'all'
+# 3. Test in staging environment first
+# 4. Monitor for any permission errors
+
+# From Scoped to Cluster-Admin (Not Recommended):
+# 1. Update rbac.preset from 'scoped' to 'cluster-admin'
+# 2. Ensure strong monitoring and auditing
+# 3. Document business justification
+# 4. Plan to reduce permissions in future
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Common Permission Errors:
+# - "forbidden: User cannot list resource" -> Check clusterRead setting
+# - "forbidden: User cannot create resource" -> Check preset permissions
+# - "forbidden: User cannot access resource in namespace" -> Check watch scope
+
+# Debug Steps:
+# 1. Check operator logs for permission errors
+# 2. Verify RBAC preset configuration
+# 3. Test with kubectl auth can-i commands
+# 4. Review ClusterRole/Role bindings

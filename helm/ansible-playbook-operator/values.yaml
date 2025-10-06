@@ -51,7 +51,7 @@ executorDefaults:
 rbac:
   # RBAC permission preset: minimal (default), scoped, or cluster-admin
   # minimal: least-privilege namespaced permissions for single-namespace operation
-  # scoped: cross-namespace access for multi-namespace scenarios
+  # scoped: cross-namespace access for cluster-wide scenarios
   # cluster-admin: full cluster permissions (use with caution)
   preset: minimal
 

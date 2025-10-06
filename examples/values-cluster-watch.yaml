@@ -1,0 +1,206 @@
+# Example values for cluster-wide watch mode
+# This configuration allows the operator to watch resources across all namespaces
+# Suitable for centralized management or when cross-namespace resource access is needed
+
+operator:
+  image:
+    repository: kenchrcum/ansible-playbook-operator
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  leaderElection: true
+  watch:
+    # Cluster-wide watch: operator watches resources across all namespaces
+    scope: all
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+  serviceAccount:
+    create: true
+    name: "ansible-operator-sa"
+
+executorDefaults:
+  image:
+    repository: kenchrcum/ansible-runner
+    tag: latest
+    pullPolicy: IfNotPresent
+  cache:
+    strategy: pvc
+    createPVC: true
+    storageSize: "50Gi"
+    storageClassName: "fast-ssd"
+
+rbac:
+  # Scoped preset: provides cross-namespace access while maintaining security
+  # Provides necessary permissions for cluster-wide watch
+  preset: scoped
+
+  # Cluster read permissions are included in scoped preset
+  clusterRead: true
+
+# =============================================================================
+# DEPLOYMENT SCENARIO: Centralized Management
+# =============================================================================
+
+# This configuration is ideal for:
+# - Centralized DevOps/Platform teams managing multiple applications
+# - Environments where cross-namespace resource sharing is needed
+# - Clusters where resource efficiency is important
+# - Single team managing all Ansible automation
+
+# Namespace Structure Example:
+# - ansible-operator: Operator deployment and shared resources
+# - app-frontend: Frontend application with Ansible automation
+# - app-backend: Backend application with Ansible automation
+# - app-database: Database application with Ansible automation
+# - shared-services: Shared services and configurations
+
+# =============================================================================
+# RBAC TRADE-OFFS FOR CLUSTER WATCH MODE
+# =============================================================================
+
+# Advantages:
+# - Single operator instance: manages resources across all namespaces
+# - Centralized management: easier to monitor and maintain
+# - Cross-namespace visibility: can reference resources in other namespaces
+# - Resource efficiency: fewer operator instances running
+# - Unified metrics and logging: all activity in one place
+#
+# Limitations:
+# - Higher privilege requirements: needs cluster-wide read access
+# - Security implications: operator can read secrets/configmaps across namespaces
+# - Single point of failure: one operator manages everything
+# - Potential performance impact: watching all namespaces increases load
+# - Less isolation: security boundaries are weaker
+#
+# Use Cases:
+# - Centralized DevOps/Platform teams
+# - Environments where cross-namespace resource sharing is needed
+# - Smaller clusters where resource efficiency is important
+# - Single team managing all Ansible automation
+#
+# RBAC Permissions Granted:
+# - Cluster: read access to CRDs, namespaces, secrets, configmaps
+# - Cluster: read access to ansible.cloud37.dev resources across all namespaces
+# - Namespace: full access to events, pods, jobs, cronjobs in operator namespace
+# - Namespace: full access to ansible.cloud37.dev resources in operator namespace
+
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+
+# 1. Service Account Isolation
+#    - Use dedicated service account for the operator
+#    - Consider separate service accounts for different security contexts
+#    - Regularly rotate service account tokens
+
+# 2. Network Policies
+#    - Implement network policies to limit operator network access
+#    - Restrict egress to only required endpoints
+#    - Use dedicated network policies for different namespaces
+
+# 3. Resource Quotas
+#    - Set resource quotas to prevent resource exhaustion
+#    - Monitor resource usage across all namespaces
+#    - Implement alerts for quota violations
+
+# 4. Audit Logging
+#    - Enable audit logging for all operator actions
+#    - Monitor for unusual access patterns
+#    - Set up alerts for security violations
+
+# Security Implications:
+# - Operator can read secrets/configmaps across all namespaces
+# - Cross-namespace resource access increases attack surface
+# - Requires careful network policies to limit blast radius
+# - Audit logging becomes more critical
+
+# =============================================================================
+# OPERATIONAL CONSIDERATIONS
+# =============================================================================
+
+# 1. Monitoring and Observability
+#    - Enable metrics collection for all namespaces
+#    - Use centralized logging for all operator activities
+#    - Set up dashboards for cluster-wide visibility
+
+# 2. Backup and Recovery
+#    - Backup CRDs and custom resources across all namespaces
+#    - Test recovery procedures regularly
+#    - Document recovery procedures for different failure scenarios
+
+# 3. Scaling Considerations
+#    - Monitor operator performance across all namespaces
+#    - Consider horizontal scaling if needed
+#    - Implement circuit breakers for external dependencies
+
+# 4. Maintenance and Updates
+#    - Plan maintenance windows for all affected namespaces
+#    - Test updates in staging environment first
+#    - Implement rollback procedures
+
+# =============================================================================
+# EXAMPLE DEPLOYMENT COMMANDS
+# =============================================================================
+
+# Deploy the operator:
+# helm install ansible-operator ./helm/ansible-playbook-operator \
+#   --namespace ansible-operator \
+#   --create-namespace \
+#   --values examples/values-cluster-watch.yaml
+
+# Create example namespaces:
+# kubectl create namespace app-frontend
+# kubectl create namespace app-backend
+# kubectl create namespace app-database
+# kubectl create namespace shared-services
+
+# Deploy example resources:
+# kubectl apply -f examples/repository-https-token.yaml -n app-frontend
+# kubectl apply -f examples/playbook-basic.yaml -n app-backend
+# kubectl apply -f examples/schedule-daily-random.yaml -n app-database
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Common Issues:
+# 1. Permission errors across namespaces
+#    - Check RBAC preset configuration
+#    - Verify ClusterRole and ClusterRoleBinding
+#    - Test with kubectl auth can-i commands
+
+# 2. Resource conflicts
+#    - Check for duplicate resource names across namespaces
+#    - Verify namespace isolation
+#    - Review resource quotas and limits
+
+# 3. Performance issues
+#    - Monitor operator resource usage
+#    - Check for resource leaks
+#    - Consider horizontal scaling
+
+# Debug Commands:
+# kubectl logs -n ansible-operator deployment/ansible-operator
+# kubectl describe clusterrole ansible-playbook-operator-scoped
+# kubectl auth can-i get secrets --all-namespaces --as=system:serviceaccount:ansible-operator:ansible-operator-sa
+
+# =============================================================================
+# ALTERNATIVE: CLUSTER-ADMIN PRESET
+# =============================================================================
+
+# For maximum flexibility (not recommended for production):
+# rbac:
+#   preset: cluster-admin
+#
+# This grants full cluster permissions but should only be used in:
+# - Development/testing environments
+# - Highly trusted environments
+# - When other presets don't meet requirements

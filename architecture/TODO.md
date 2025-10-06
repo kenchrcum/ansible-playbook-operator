@@ -40,7 +40,7 @@ This backlog captures missing or incomplete work to reach the goals in `architec
 ### Helm Chart Improvements
 - [x] Values layout: complete split between `operator.*`, `executorDefaults.*`, and `rbac.*`; document all fields with sane defaults.
 - [x] ServiceMonitor: allow additional labels/namespace selectors; document Prometheus Operator expectations.
-- [ ] Multi-namespace examples: provide example values for `namespace` vs `all` watch; include RBAC presets and trade-offs.
+- [x] Multi-namespace examples: provide example values for `namespace` vs `all` watch; include RBAC presets and trade-offs.
 - [x] Provide optional PVC cache values and templates for executor cache volume.
 - [ ] Add optional NetworkPolicy manifests and example values.
 - [x] Hardening: ensure Deployment, ServiceAccount, and RBAC reflect least-privilege and security context defaults; add PSA labels guidance.
