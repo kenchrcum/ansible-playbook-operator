@@ -706,6 +706,9 @@ def handle_job_completion(event: dict[str, Any], **_: Any) -> None:
             reason="ValidateSucceeded",
             message="Repository connectivity and clone capability verified",
         )
+
+        # Trigger dependent Playbooks when Repository becomes ready
+        dependency_service.requeue_dependent_playbooks(namespace, repository_name)
     elif failed > 0:
         metrics.JOB_RUNS_TOTAL.labels(kind="Repository", result="failure").inc()
         # Record job duration
