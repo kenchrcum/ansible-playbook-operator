@@ -7,7 +7,7 @@ entries:
         - name: kenchrcum/ansible-playbook-operator
           image: kenchrcum/ansible-playbook-operator:0.1.2
         - name: kenchrcum/ansible-runner
-          image: kenchrcum/ansible-runner:13
+          image: kenchrcum/ansible-runner:12
       licenses: Unlicense
     apiVersion: v2
     appVersion: 0.1.2
@@ -15,7 +15,6 @@ entries:
     description: Lightweight GitOps-focused operator for running Ansible playbooks
     digest: 7fe03a7f0abba873040b9baba32734920c052e5b0bbf44ab3bac68b7dcabe5ff
     home: https://github.com/kenchrcum/ansible-playbook-operator
-    icon: https://raw.githubusercontent.com/kenchrcum/ansible-playbook-operator/main/docs/logo.png
     keywords:
     - kubernetes
     - operator
