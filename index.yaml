@@ -1,3 +1,37 @@
 apiVersion: v1
-entries: {}
-generated: "2025-10-06T14:46:05Z"
+entries:
+  ansible-playbook-operator:
+  - annotations:
+      category: Operators
+      images: |
+        - name: kenchrcum/ansible-playbook-operator
+          image: kenchrcum/ansible-playbook-operator:0.1.2
+        - name: kenchrcum/ansible-runner
+          image: kenchrcum/ansible-runner:13
+      licenses: Unlicense
+    apiVersion: v2
+    appVersion: 0.1.2
+    created: "2025-10-06T14:56:43.357193555Z"
+    description: Lightweight GitOps-focused operator for running Ansible playbooks
+    digest: 7fe03a7f0abba873040b9baba32734920c052e5b0bbf44ab3bac68b7dcabe5ff
+    home: https://github.com/kenchrcum/ansible-playbook-operator
+    icon: https://raw.githubusercontent.com/kenchrcum/ansible-playbook-operator/main/docs/logo.png
+    keywords:
+    - kubernetes
+    - operator
+    - ansible
+    - gitops
+    - automation
+    - cronjob
+    - playbook
+    maintainers:
+    - name: Kenneth
+      url: https://github.com/kenchrcum
+    name: ansible-playbook-operator
+    sources:
+    - https://github.com/kenchrcum/ansible-playbook-operator
+    type: application
+    urls:
+    - https://github.com/kenchrcum/ansible-playbook-operator/releases/download/ansible-playbook-operator-0.1.2/ansible-playbook-operator-0.1.2.tgz
+    version: 0.1.2
+generated: "2025-10-06T14:56:43.357199165Z"
