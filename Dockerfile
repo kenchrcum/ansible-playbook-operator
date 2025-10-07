@@ -26,6 +26,9 @@ FROM python:3.14-alpine${BASE_DIGEST:+@${BASE_DIGEST}}
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Upgrade system packages
+RUN apk upgrade --no-cache
+
 # Install git and openssh for repository validation
 RUN apk add --no-cache git openssh-client
 
