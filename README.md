@@ -1,6 +1,8 @@
 # Ansible Playbook Operator
 
-[![License: Unlicense](https://img.shields.io/badge/license-Unlicense-blue.svg)](https://unlicense.org/)
+![Version](https://img.shields.io/badge/version-0.1.2-blue.svg)
+[![License](https://img.shields.io/badge/license-Unlicense-lightgrey.svg)](LICENSE)
+[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-playbook-operator)](https://artifacthub.io/packages/search?repo=ansible-playbook-operator)
 
 A lightweight, GitOps-focused Kubernetes operator for executing Ansible playbooks using the [Kopf](https://kopf.readthedocs.io) framework. Built with security, observability, and operational simplicity as core principles.
 
