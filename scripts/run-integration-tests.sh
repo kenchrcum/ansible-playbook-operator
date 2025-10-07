@@ -135,6 +135,12 @@ create_kind_cluster() {
         fi
     fi
 
+    # Backup current kubectl context to avoid modifying user's default context
+    local original_context=""
+    if command -v kubectl &> /dev/null; then
+        original_context=$(kubectl config current-context 2>/dev/null || echo "")
+    fi
+
     # Create simple kind cluster configuration (more reliable)
     cat > /tmp/kind-config.yaml << EOF
 kind: Cluster
@@ -151,6 +157,11 @@ EOF
         log_error "Failed to create kind cluster"
         log_error "Please check Docker daemon and system resources"
         exit 1
+    fi
+
+    # Restore original kubectl context if it existed
+    if [ -n "$original_context" ] && command -v kubectl &> /dev/null; then
+        kubectl config use-context "$original_context" 2>/dev/null || true
     fi
 
     # Clean up config file
