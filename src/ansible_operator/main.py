@@ -163,6 +163,195 @@ def rebuild_dependency_indices(**_: Any) -> None:
         )
 
 
+@kopf.on.startup()
+def reconcile_orphaned_probe_jobs(**_: Any) -> None:
+    """Detect and reconcile orphaned repository probe jobs after operator restart."""
+    structured_logging.logger.info(
+        "Checking for orphaned repository probe jobs after operator restart",
+        event="startup",
+        reason="ProbeJobReconciliation",
+    )
+
+    try:
+        batch_api = client.BatchV1Api()
+        api = client.CustomObjectsApi()
+
+        # Get all namespaces to scan based on watch scope
+        namespaces = []
+        watch_scope = os.getenv("WATCH_SCOPE", "namespace")
+
+        if watch_scope == "all":
+            # Get all namespaces for cluster-wide operation
+            try:
+                v1 = client.CoreV1Api()
+                ns_list = v1.list_namespace()
+                namespaces = [ns.metadata.name for ns in ns_list.items]
+            except Exception:
+                # Fallback to default namespace if we can't list namespaces
+                namespaces = ["default"]
+        else:
+            # Single namespace operation - get current namespace
+            try:
+                current_ns = os.getenv("POD_NAMESPACE", "default")
+                namespaces = [current_ns]
+            except Exception:
+                namespaces = ["default"]
+
+        orphaned_jobs_found = 0
+        reconciled_jobs = 0
+
+        for namespace in namespaces:
+            try:
+                # List all jobs with connectivity probe label
+                jobs = batch_api.list_namespaced_job(
+                    namespace=namespace,
+                    label_selector="ansible.cloud37.dev/probe-type=connectivity",
+                )
+
+                for job in jobs.items:
+                    orphaned_jobs_found += 1
+                    job_name = job.metadata.name
+                    job_status = job.status
+
+                    # Check if job is completed (succeeded or failed)
+                    succeeded = job_status.succeeded or 0
+                    failed = job_status.failed or 0
+
+                    if succeeded > 0 or failed > 0:
+                        # Job is completed, reconcile repository status
+                        if job_name.endswith("-probe"):
+                            repository_name = job_name[:-6]  # Remove "-probe" suffix
+
+                            # Check if repository still exists
+                            try:
+                                repository = api.get_namespaced_custom_object(
+                                    group=API_GROUP,
+                                    version="v1alpha1",
+                                    namespace=namespace,
+                                    plural="repositories",
+                                    name=repository_name,
+                                )
+
+                                # Update repository status based on job completion
+                                patch_body: dict[str, Any] = {"status": {}}
+
+                                if succeeded > 0:
+                                    structured_logging.logger.info(
+                                        "Reconciling orphaned probe job - succeeded",
+                                        event="startup",
+                                        reason="ProbeJobReconciled",
+                                        job_name=job_name,
+                                        repository=f"{namespace}/{repository_name}",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        "AuthValid",
+                                        "True",
+                                        "ProbeSucceeded",
+                                        "Connectivity probe successful (reconciled)",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        "CloneReady",
+                                        "True",
+                                        "ProbeSucceeded",
+                                        "Repository clone ready (reconciled)",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        COND_READY,
+                                        "True",
+                                        "Validated",
+                                        "Repository is ready for use (reconciled)",
+                                    )
+                                else:  # failed > 0
+                                    structured_logging.logger.info(
+                                        "Reconciling orphaned probe job - failed",
+                                        event="startup",
+                                        reason="ProbeJobReconciled",
+                                        job_name=job_name,
+                                        repository=f"{namespace}/{repository_name}",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        "AuthValid",
+                                        "False",
+                                        "ProbeFailed",
+                                        "Connectivity probe failed (reconciled)",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        "CloneReady",
+                                        "False",
+                                        "ProbeFailed",
+                                        "Cannot attempt clone without connectivity (reconciled)",
+                                    )
+                                    _update_condition(
+                                        patch_body["status"],
+                                        COND_READY,
+                                        "False",
+                                        "ProbeFailed",
+                                        "Repository connectivity check failed (reconciled)",
+                                    )
+
+                                # Apply the status update
+                                if patch_body["status"]:
+                                    api.patch_namespaced_custom_object_status(
+                                        group=API_GROUP,
+                                        version="v1alpha1",
+                                        namespace=namespace,
+                                        plural="repositories",
+                                        name=repository_name,
+                                        body=patch_body,
+                                        field_manager="ansible-operator",
+                                    )
+                                    reconciled_jobs += 1
+
+                                    # Trigger dependent Playbooks when Repository becomes ready
+                                    if succeeded > 0:
+                                        dependency_service.requeue_dependent_playbooks(
+                                            namespace, repository_name
+                                        )
+
+                            except client.exceptions.ApiException as e:
+                                if e.status == 404:
+                                    # Repository was deleted, job will be cleaned up by owner reference
+                                    structured_logging.logger.info(
+                                        "Orphaned probe job found but repository deleted",
+                                        event="startup",
+                                        reason="ProbeJobOrphaned",
+                                        job_name=job_name,
+                                        repository=f"{namespace}/{repository_name}",
+                                    )
+                                else:
+                                    raise
+
+            except Exception as e:
+                structured_logging.logger.warning(
+                    f"Failed to reconcile probe jobs in namespace {namespace}: {e}",
+                    event="startup",
+                    reason="ProbeJobReconciliationFailed",
+                    namespace=namespace,
+                    error=str(e),
+                )
+
+        structured_logging.logger.info(
+            f"Reconciled {reconciled_jobs} orphaned probe jobs out of {orphaned_jobs_found} found",
+            event="startup",
+            reason="ProbeJobReconciliation",
+            orphaned_jobs_found=orphaned_jobs_found,
+            reconciled_jobs=reconciled_jobs,
+        )
+
+    except Exception as e:
+        structured_logging.logger.error(
+            f"Failed to reconcile orphaned probe jobs: {e}",
+            event="startup",
+            reason="ProbeJobReconciliationFailed",
+            error=str(e),
+        )
+
+
 def _update_condition(
     status: dict[str, Any], type_: str, status_value: str, reason: str, message: str
 ) -> None:
@@ -558,29 +747,159 @@ def reconcile_repository(
                 body=job_manifest,
                 field_manager="ansible-operator",
             )
-        except client.exceptions.ApiException as e:
-            if e.status == 409:
-                # Job already exists; patch it
-                batch_api.patch_namespaced_job(
-                    name=job_name,
-                    namespace=namespace,
-                    body=job_manifest,
-                    field_manager="ansible-operator",
-                )
+            # New job created, set conditions to indicate probe is running
+            _update_condition(
+                patch.status,
+                "AuthValid",
+                "Unknown",
+                "ProbeRunning",
+                "Connectivity probe in progress",
+            )
+            _update_condition(
+                patch.status, "CloneReady", "Unknown", "Deferred", "Waiting for connectivity probe"
+            )
+            _update_condition(
+                patch.status,
+                COND_READY,
+                "Unknown",
+                "Deferred",
+                "Repository connectivity being probed",
+            )
+        except Exception as e:
+            if hasattr(e, "status") and e.status == 409:
+                # Job already exists; check its status and patch if needed
+                try:
+                    existing_job = batch_api.read_namespaced_job(name=job_name, namespace=namespace)
+                    job_status = existing_job.status
+                    succeeded = job_status.succeeded or 0
+                    failed = job_status.failed or 0
+
+                    if succeeded > 0:
+                        # Job already succeeded, update repository status immediately
+                        structured_logging.logger.info(
+                            "Existing probe job already succeeded, updating repository status",
+                            controller="Repository",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="reconcile",
+                            reason="ProbeAlreadySucceeded",
+                            job_name=job_name,
+                        )
+                        _update_condition(
+                            patch.status,
+                            "AuthValid",
+                            "True",
+                            "ProbeSucceeded",
+                            "Connectivity probe successful",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "CloneReady",
+                            "True",
+                            "ProbeSucceeded",
+                            "Repository clone ready",
+                        )
+                        _update_condition(
+                            patch.status,
+                            COND_READY,
+                            "True",
+                            "Validated",
+                            "Repository is ready for use",
+                        )
+                    elif failed > 0:
+                        # Job already failed, update repository status immediately
+                        structured_logging.logger.info(
+                            "Existing probe job already failed, updating repository status",
+                            controller="Repository",
+                            resource=f"{namespace}/{name}",
+                            uid=uid,
+                            event="reconcile",
+                            reason="ProbeAlreadyFailed",
+                            job_name=job_name,
+                        )
+                        _update_condition(
+                            patch.status,
+                            "AuthValid",
+                            "False",
+                            "ProbeFailed",
+                            "Connectivity probe failed",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "CloneReady",
+                            "False",
+                            "ProbeFailed",
+                            "Cannot attempt clone without connectivity",
+                        )
+                        _update_condition(
+                            patch.status,
+                            COND_READY,
+                            "False",
+                            "ProbeFailed",
+                            "Repository connectivity check failed",
+                        )
+                    else:
+                        # Job is still running, patch it and set running conditions
+                        batch_api.patch_namespaced_job(
+                            name=job_name,
+                            namespace=namespace,
+                            body=job_manifest,
+                            field_manager="ansible-operator",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "AuthValid",
+                            "Unknown",
+                            "ProbeRunning",
+                            "Connectivity probe in progress",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "CloneReady",
+                            "Unknown",
+                            "Deferred",
+                            "Waiting for connectivity probe",
+                        )
+                        _update_condition(
+                            patch.status,
+                            COND_READY,
+                            "Unknown",
+                            "Deferred",
+                            "Repository connectivity being probed",
+                        )
+                except Exception as job_e:
+                    if hasattr(job_e, "status") and job_e.status == 404:
+                        # Job was deleted between creation attempt and read, create it
+                        batch_api.create_namespaced_job(
+                            namespace=namespace,
+                            body=job_manifest,
+                            field_manager="ansible-operator",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "AuthValid",
+                            "Unknown",
+                            "ProbeRunning",
+                            "Connectivity probe in progress",
+                        )
+                        _update_condition(
+                            patch.status,
+                            "CloneReady",
+                            "Unknown",
+                            "Deferred",
+                            "Waiting for connectivity probe",
+                        )
+                        _update_condition(
+                            patch.status,
+                            COND_READY,
+                            "Unknown",
+                            "Deferred",
+                            "Repository connectivity being probed",
+                        )
+                    else:
+                        raise
             else:
                 raise
-
-        # Set conditions to indicate probe is running
-        # (status will be updated by job completion handler)
-        _update_condition(
-            patch.status, "AuthValid", "Unknown", "ProbeRunning", "Connectivity probe in progress"
-        )
-        _update_condition(
-            patch.status, "CloneReady", "Unknown", "Deferred", "Waiting for connectivity probe"
-        )
-        _update_condition(
-            patch.status, COND_READY, "Unknown", "Deferred", "Repository connectivity being probed"
-        )
 
         # Index dependencies and trigger dependent Playbooks
         dependency_service.index_repository_dependencies(namespace, name)

@@ -1,11 +1,19 @@
 """Tests for repository finalizer functionality."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 from kubernetes import client
 
 from ansible_operator.main import FINALIZER_REPOSITORY, reconcile_repository
+
+
+class MockApiException(Exception):
+    """Mock API exception with status attribute."""
+
+    def __init__(self, status: int, reason: str = ""):
+        super().__init__(reason)
+        self.status = status
 
 
 class MockPatch:
@@ -38,9 +46,14 @@ class TestRepositoryFinalizer:
         ):
             mock_batch_api = MagicMock()
             mock_batch_api_class.return_value = mock_batch_api
-            mock_batch_api.create_namespaced_job.side_effect = client.exceptions.ApiException(
-                status=409
-            )
+            mock_api_exception = MockApiException(status=409, reason="Job already exists")
+            mock_batch_api.create_namespaced_job.side_effect = mock_api_exception
+
+            # Mock existing job with succeeded status
+            mock_existing_job = Mock()
+            mock_existing_job.status.succeeded = 1
+            mock_existing_job.status.failed = 0
+            mock_batch_api.read_namespaced_job.return_value = mock_existing_job
             mock_batch_api.patch_namespaced_job.return_value = None
 
             reconcile_repository(
@@ -89,9 +102,14 @@ class TestRepositoryFinalizer:
         ):
             mock_batch_api = MagicMock()
             mock_batch_api_class.return_value = mock_batch_api
-            mock_batch_api.create_namespaced_job.side_effect = client.exceptions.ApiException(
-                status=409
-            )
+            mock_api_exception = MockApiException(status=409, reason="Job already exists")
+            mock_batch_api.create_namespaced_job.side_effect = mock_api_exception
+
+            # Mock existing job with succeeded status
+            mock_existing_job = Mock()
+            mock_existing_job.status.succeeded = 1
+            mock_existing_job.status.failed = 0
+            mock_batch_api.read_namespaced_job.return_value = mock_existing_job
             mock_batch_api.patch_namespaced_job.return_value = None
 
             reconcile_repository(
