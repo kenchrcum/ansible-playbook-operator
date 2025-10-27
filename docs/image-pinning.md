@@ -28,7 +28,7 @@ Image pinning is configured through Helm values in the `values.yaml` file:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.2"
+    tag: "0.1.3"
     # Optional: pin image by digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     # Format: sha256:abc123def456...
@@ -76,7 +76,7 @@ executorDefaults:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.2"  # Ignored when digest is present
+    tag: "0.1.3"  # Ignored when digest is present
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
 executorDefaults:
@@ -93,7 +93,7 @@ executorDefaults:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.2"
+    tag: "0.1.3"
     digest: ""  # Empty digest falls back to tag
 
 executorDefaults:
@@ -109,11 +109,11 @@ executorDefaults:
 
 ```bash
 # Pull the image and inspect
-docker pull kenchrcum/ansible-playbook-operator:0.1.2
-docker inspect kenchrcum/ansible-playbook-operator:0.1.2 | grep -i digest
+docker pull kenchrcum/ansible-playbook-operator:0.1.3
+docker inspect kenchrcum/ansible-playbook-operator:0.1.3 | grep -i digest
 
 # Or use docker manifest
-docker manifest inspect kenchrcum/ansible-playbook-operator:0.1.2
+docker manifest inspect kenchrcum/ansible-playbook-operator:0.1.3
 ```
 
 ### Using Crane (Google's Container Registry Tool)
@@ -123,7 +123,7 @@ docker manifest inspect kenchrcum/ansible-playbook-operator:0.1.2
 go install github.com/google/go-containerregistry/cmd/crane@latest
 
 # Get digest
-crane digest kenchrcum/ansible-playbook-operator:0.1.2
+crane digest kenchrcum/ansible-playbook-operator:0.1.3
 ```
 
 ### Using Skopeo
@@ -134,7 +134,7 @@ crane digest kenchrcum/ansible-playbook-operator:0.1.2
 # RHEL/CentOS: yum install skopeo
 
 # Get digest
-skopeo inspect docker://kenchrcum/ansible-playbook-operator:0.1.2
+skopeo inspect docker://kenchrcum/ansible-playbook-operator:0.1.3
 ```
 
 ## Upgrade Flow
@@ -229,7 +229,7 @@ Many compliance frameworks require image pinning:
 ```bash
 # Error: failed to pull image
 # Solution: Verify the digest is correct and accessible
-crane digest kenchrcum/ansible-playbook-operator:0.1.2
+crane digest kenchrcum/ansible-playbook-operator:0.1.3
 ```
 
 #### Digest Format Errors
@@ -342,10 +342,10 @@ jobs:
 ```bash
 # 1. Get current image
 kubectl get pods -n ansible-operator-system -o jsonpath='{.items[0].spec.containers[0].image}'
-# Output: kenchrcum/ansible-playbook-operator:0.1.2
+# Output: kenchrcum/ansible-playbook-operator:0.1.3
 
 # 2. Get digest for current image
-CURRENT_DIGEST=$(crane digest kenchrcum/ansible-playbook-operator:0.1.2)
+CURRENT_DIGEST=$(crane digest kenchrcum/ansible-playbook-operator:0.1.3)
 echo "Current digest: $CURRENT_DIGEST"
 
 # 3. Update values.yaml
@@ -353,7 +353,7 @@ cat >> values.yaml << EOF
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.2"
+    tag: "0.1.3"
     digest: "$CURRENT_DIGEST"
 EOF
 

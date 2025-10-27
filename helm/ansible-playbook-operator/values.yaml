@@ -6,7 +6,7 @@ operator:
   # Operator container image configuration
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.2"
+    tag: "0.1.3"
     # Optional: pin image by digest for enhanced security and reproducibility
     # When digest is provided, it takes precedence over tag
     # Format: sha256:abc123def456...
