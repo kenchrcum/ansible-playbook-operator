@@ -79,7 +79,10 @@ export KUBECONFIG="$(kind get kubeconfig --name ansible-operator-test)"
 
 # Install test dependencies
 source .venv/bin/activate
-pip install -e ".[test]"
+# Option 1: Using requirements files
+pip install -r requirements-dev.txt
+# Option 2: Install as editable package
+# pip install -e ".[test]"
 
 # Run tests
 pytest tests/integration/ -v

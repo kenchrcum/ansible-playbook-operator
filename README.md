@@ -481,7 +481,11 @@ git clone https://github.com/kenchrcum/ansible-playbook-operator
 cd ansible-playbook-operator
 
 # Install dependencies
-pip install -e .
+# Option 1: Using requirements files (recommended for CI/CD)
+pip install -r requirements-dev.txt
+
+# Option 2: Install as editable package
+pip install -e ".[test]"
 
 # Install pre-commit hooks
 pre-commit install
