@@ -11,7 +11,7 @@ This document defines a step-by-step, code-free plan to build a lightweight, Git
 
 ### 1. Repository bootstrapping
 - Layout: `src/` (controllers, services), `schemas/` (CRD definitions), `helm/` (chart), `docs/`, `tests/`, `examples/`, `k8s/` (manifests for dev), `scripts/` (dev tooling)
-- Tooling: Python 3.11, `ruff`, `black`, `mypy`, `pytest`, `pre-commit`; dependency management via `uv` or `pip-tools`
+- Tooling: Python 3.14, `ruff`, `black`, `mypy`, `pytest`, `pre-commit`; dependency management via `uv` or `pip-tools`
 - Operator runtime: enable leader election; decide watch scope (single namespace by default, opt-in all-namespaces)
 - Conventions: Conventional Commits; PRs require relevant tests + docs
 
@@ -214,7 +214,7 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
   - Otherwise: emit warning and skip adoption to avoid hijacking
 - Never force-apply unless recovering from a previous operator field manager; prefer granular patches.
 
-#### 3.11 Requeues and backoff
+#### 3.14 Requeues and backoff
 - Requeue on transient failures with exponential backoff; cap max delay.
 - Periodic soft requeue (every 15 minutes) for `Schedule` to refresh `nextRunTime` if needed.
   - Implemented via `@kopf.timer(API_GROUP_VERSION, "schedules", interval=900)`
@@ -306,7 +306,7 @@ Manual runs (v1alpha1): Supported via a well-known annotation on `Playbook` (e.g
   - Optional PVC cache configuration
 
 ### 10. Container images
-- Operator image: `python:3.11-slim` with `kopf`, `kubernetes`, `pyyaml`, and minimal tools; no Ansible required in the operator image
+- Operator image: `python:3.14-slim` with `kopf`, `kubernetes`, `pyyaml`, and minimal tools; no Ansible required in the operator image
 - Executor image: default `kenchrcum/ansible-runner` (digest-pinned), overridable per Playbook
 - Supply SBOM and image scanning in CI; keep images reproducible and minimal
 

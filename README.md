@@ -469,7 +469,7 @@ Structured JSON logs with fields:
 
 ### Prerequisites
 
-- Python 3.11+
+- Python 3.14+
 - `uv` or `pip` for dependency management
 - Pre-commit hooks configured
 

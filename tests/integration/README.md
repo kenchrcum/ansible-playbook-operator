@@ -21,7 +21,7 @@ Before running integration tests, ensure you have:
 - [kind](https://kind.sigs.k8s.io/) - Kubernetes in Docker
 - [helm](https://helm.sh/) - Package manager for Kubernetes
 - [docker](https://www.docker.com/) - Container runtime
-- Python 3.11+ with virtual environment support
+- Python 3.14+ with virtual environment support
 
 ## Quick Start
 

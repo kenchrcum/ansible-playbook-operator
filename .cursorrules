@@ -8,7 +8,7 @@ These rules set expectations for coding, reviews, commits, and operational hygie
 - No secrets in logs, errors, CI output, or docs.
 
 ## Languages & Tooling
-- Python 3.11; use `ruff` for linting, `black` for formatting, `mypy` for typing.
+- Python 3.14; use `ruff` for linting, `black` for formatting, `mypy` for typing.
 - Tests with `pytest`; prefer unit tests for logic and kind-based integration tests for controllers.
 - Use Server-Side Apply for Kubernetes writes; one field manager: `ansible-operator`.
 
