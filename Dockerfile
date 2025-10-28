@@ -16,6 +16,7 @@ RUN apk add --no-cache gcc musl-dev libffi-dev openssl-dev git
 
 WORKDIR /app
 COPY pyproject.toml /app/
+COPY requirements.txt /app/
 COPY src /app/src
 
 RUN python -m pip install --upgrade pip && \
@@ -24,7 +25,8 @@ RUN python -m pip install --upgrade pip && \
 # Final image
 FROM python:3.14-alpine${BASE_DIGEST:+@${BASE_DIGEST}}
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PATH="/usr/local/bin:$PATH"
 
 # Upgrade system packages
 RUN apk upgrade --no-cache
