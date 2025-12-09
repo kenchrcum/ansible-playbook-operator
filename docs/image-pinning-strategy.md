@@ -18,7 +18,7 @@ The Helm chart supports digest pinning through the `digest` field in image confi
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
     digest: "sha256:abc123def456..."  # Takes precedence over tag
     pullPolicy: IfNotPresent
 
@@ -37,8 +37,8 @@ executorDefaults:
 ### Method 1: Docker CLI
 ```bash
 # Get digest for operator image
-docker pull kenchrcum/ansible-playbook-operator:0.1.3
-docker inspect kenchrcum/ansible-playbook-operator:0.1.3 | jq -r '.[0].RepoDigests[0]'
+docker pull kenchrcum/ansible-playbook-operator:0.1.4
+docker inspect kenchrcum/ansible-playbook-operator:0.1.4 | jq -r '.[0].RepoDigests[0]'
 
 # Get digest for executor image
 docker pull kenchrcum/ansible-runner:latest
@@ -49,7 +49,7 @@ docker inspect kenchrcum/ansible-runner:latest | jq -r '.[0].RepoDigests[0]'
 ```bash
 # Get digest from registry manifest
 curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
-  https://registry-1.docker.io/v2/kenchrcum/ansible-playbook-operator/manifests/0.1.3 | \
+  https://registry-1.docker.io/v2/kenchrcum/ansible-playbook-operator/manifests/0.1.4 | \
   jq -r '.config.digest'
 ```
 
@@ -59,7 +59,7 @@ curl -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
 go install github.com/google/go-containerregistry/cmd/crane@latest
 
 # Get digest
-crane digest kenchrcum/ansible-playbook-operator:0.1.3
+crane digest kenchrcum/ansible-playbook-operator:0.1.4
 crane digest kenchrcum/ansible-runner:latest
 ```
 
@@ -88,7 +88,7 @@ crane digest kenchrcum/ansible-runner:latest
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent
 
@@ -106,7 +106,7 @@ executorDefaults:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent
   resources:
@@ -137,7 +137,7 @@ executorDefaults:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent
 
@@ -158,7 +158,7 @@ Create a script to automatically update digests in your values files:
 #!/bin/bash
 # update-image-digests.sh
 
-OPERATOR_DIGEST=$(crane digest kenchrcum/ansible-playbook-operator:0.1.3)
+OPERATOR_DIGEST=$(crane digest kenchrcum/ansible-playbook-operator:0.1.4)
 EXECUTOR_DIGEST=$(crane digest kenchrcum/ansible-runner:latest)
 
 # Update values files
@@ -219,7 +219,7 @@ Error: failed to pull image: unauthorized
 ### Debug Commands
 ```bash
 # Verify digest exists
-crane digest kenchrcum/ansible-playbook-operator:0.1.3
+crane digest kenchrcum/ansible-playbook-operator:0.1.4
 
 # Check image manifest
 crane manifest kenchrcum/ansible-playbook-operator@sha256:1234567890abcdef...
@@ -261,7 +261,7 @@ docker pull kenchrcum/ansible-playbook-operator@sha256:1234567890abcdef...
 
 2. **Get current digests**:
    ```bash
-   crane digest kenchrcum/ansible-playbook-operator:0.1.3
+   crane digest kenchrcum/ansible-playbook-operator:0.1.4
    crane digest kenchrcum/ansible-runner:latest
    ```
 
@@ -270,7 +270,7 @@ docker pull kenchrcum/ansible-playbook-operator@sha256:1234567890abcdef...
    operator:
      image:
        repository: kenchrcum/ansible-playbook-operator
-       tag: "0.1.3"
+       tag: "0.1.4"
        digest: "sha256:1234567890abcdef..."
    ```
 

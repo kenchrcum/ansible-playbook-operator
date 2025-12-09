@@ -25,14 +25,14 @@ The Ansible Playbook Operator follows semantic versioning:
 
 | Operator Version | CRD Version | Kubernetes Version | Helm Version |
 |------------------|-------------|-------------------|--------------|
-| 0.1.3 | v1alpha1 | 1.24+ | 3.8+ |
+| 0.1.4 | v1alpha1 | 1.24+ | 3.8+ |
 | 0.2.0 | v1alpha1 | 1.24+ | 3.8+ |
 | 1.0.0 | v1beta1 | 1.24+ | 3.8+ |
 
 ### Upgrade Paths
 
 **Supported Upgrades:**
-- 0.1.3 → 0.2.0 (minor version)
+- 0.1.4 → 0.2.0 (minor version)
 - 0.2.0 → 1.0.0 (major version with migration)
 - 1.0.0 → 1.1.0 (minor version)
 
@@ -103,10 +103,10 @@ kubectl get crd | grep ansible.cloud37.dev
 
 **Helm Values Migration:**
 ```yaml
-# Old configuration (v0.1.3)
+# Old configuration (v0.1.4)
 operator:
   image:
-    tag: "0.1.3"
+    tag: "0.1.4"
   resources:
     requests:
       cpu: 100m
@@ -192,7 +192,7 @@ kubectl get events --field-selector reason=MigrationFailed
 # Old values still work
 operator:
   image:
-    tag: "0.1.3"
+    tag: "0.1.4"
   resources:
     requests:
       cpu: 100m
@@ -389,7 +389,7 @@ kubectl create namespace ansible-operator-test
 # Deploy current version
 helm install ansible-playbook-operator-test ./helm/ansible-playbook-operator \
   --namespace ansible-operator-test \
-  --version 0.1.3
+  --version 0.1.4
 
 # Create test resources
 kubectl apply -f examples/playbook-basic.yaml -n ansible-operator-test

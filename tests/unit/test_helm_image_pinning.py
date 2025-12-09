@@ -23,7 +23,7 @@ def render_helm_template(template_path: str, values: dict[str, Any]) -> dict[str
         template_content = template_content.replace("{{ .Values.operator.image.repository }}", repo)
 
     if "{{ .Values.operator.image.tag }}" in template_content:
-        tag = values.get("operator", {}).get("image", {}).get("tag", "0.1.3")
+        tag = values.get("operator", {}).get("image", {}).get("tag", "0.1.4")
         template_content = template_content.replace("{{ .Values.operator.image.tag }}", tag)
 
     if "{{ .Values.operator.image.digest }}" in template_content:
@@ -77,7 +77,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     "pullPolicy": "IfNotPresent",
                 }
@@ -98,7 +98,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "",
                     "pullPolicy": "IfNotPresent",
                 }
@@ -109,7 +109,7 @@ class TestHelmImagePinning:
         manifest = render_helm_template(template_path, values)
 
         container = manifest["spec"]["template"]["spec"]["containers"][0]
-        expected_image = "kenchrcum/ansible-playbook-operator:0.1.3"
+        expected_image = "kenchrcum/ansible-playbook-operator:0.1.4"
         assert container["image"] == expected_image
 
     def test_deployment_with_none_digest(self):
@@ -118,7 +118,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": None,
                     "pullPolicy": "IfNotPresent",
                 }
@@ -129,7 +129,7 @@ class TestHelmImagePinning:
         manifest = render_helm_template(template_path, values)
 
         container = manifest["spec"]["template"]["spec"]["containers"][0]
-        expected_image = "kenchrcum/ansible-playbook-operator:0.1.3"
+        expected_image = "kenchrcum/ansible-playbook-operator:0.1.4"
         assert container["image"] == expected_image
 
     def test_deployment_missing_digest_field(self):
@@ -138,7 +138,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "pullPolicy": "IfNotPresent",
                 }
             }
@@ -148,7 +148,7 @@ class TestHelmImagePinning:
         manifest = render_helm_template(template_path, values)
 
         container = manifest["spec"]["template"]["spec"]["containers"][0]
-        expected_image = "kenchrcum/ansible-playbook-operator:0.1.3"
+        expected_image = "kenchrcum/ansible-playbook-operator:0.1.4"
         assert container["image"] == expected_image
 
     def test_deployment_custom_repository(self):
@@ -157,7 +157,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "registry.example.com/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     "pullPolicy": "IfNotPresent",
                 }
@@ -177,7 +177,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     "pullPolicy": "Always",
                 }
@@ -216,7 +216,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                 }
             }
@@ -234,7 +234,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "",
                 }
             }
@@ -252,7 +252,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                 }
             }
@@ -277,7 +277,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "pullPolicy": "IfNotPresent",
                 }
             }
@@ -287,7 +287,7 @@ class TestHelmImagePinning:
         manifest = render_helm_template(template_path, old_values)
 
         container = manifest["spec"]["template"]["spec"]["containers"][0]
-        expected_image = "kenchrcum/ansible-playbook-operator:0.1.3"
+        expected_image = "kenchrcum/ansible-playbook-operator:0.1.4"
         assert container["image"] == expected_image
 
         # Test with new values structure (with digest field)
@@ -295,7 +295,7 @@ class TestHelmImagePinning:
             "operator": {
                 "image": {
                     "repository": "kenchrcum/ansible-playbook-operator",
-                    "tag": "0.1.3",
+                    "tag": "0.1.4",
                     "digest": "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
                     "pullPolicy": "IfNotPresent",
                 }

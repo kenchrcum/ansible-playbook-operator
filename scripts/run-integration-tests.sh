@@ -53,7 +53,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Options:"
             echo "  --cluster-name NAME     Kind cluster name (default: ansible-operator-test)"
-            echo "  --operator-image IMAGE   Operator image (default: kenchrcum/ansible-playbook-operator:0.1.3)"
+            echo "  --operator-image IMAGE   Operator image (default: kenchrcum/ansible-playbook-operator:0.1.4)"
             echo "  --executor-image IMAGE   Executor image (default: kenchrcum/ansible-runner:latest)"
             echo "  --namespace NAME         Operator namespace (default: ansible-operator-system)"
             echo "  --verbose               Enable verbose output"

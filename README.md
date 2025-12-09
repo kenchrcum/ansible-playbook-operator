@@ -1,6 +1,6 @@
 # Ansible Playbook Operator
 
-![Version](https://img.shields.io/badge/version-0.1.3-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.4-blue.svg)
 [![License](https://img.shields.io/badge/license-Unlicense-lightgrey.svg)](LICENSE)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-playbook-operator)](https://artifacthub.io/packages/search?repo=ansible-playbook-operator)
 
@@ -572,7 +572,7 @@ Key configuration options:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
   resources:
     requests:
       cpu: 100m

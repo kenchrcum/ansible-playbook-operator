@@ -23,7 +23,7 @@ operator:
   # Container image configuration
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.3"
+    tag: "0.1.4"
     digest: ""  # Optional: pin by digest for security
     pullPolicy: IfNotPresent
 

@@ -1,6 +1,6 @@
 # Ansible Playbook Operator — Development Roadmap
 
-**Version:** 0.1.3 (v1alpha1)
+**Version:** 0.1.4 (v1alpha1)
 **Last Updated:** 2025-01-31
 **Status:** Production Ready (v1alpha1), Planning for v1beta1
 
