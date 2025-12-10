@@ -15,7 +15,6 @@ keywords:
 home: https://github.com/kenchrcum/ansible-playbook-operator
 sources:
   - https://github.com/kenchrcum/ansible-playbook-operator
-icon: https://raw.githubusercontent.com/kenchrcum/ansible-playbook-operator/main/docs/logo.png
 maintainers:
   - name: Kenneth
     url: https://github.com/kenchrcum
