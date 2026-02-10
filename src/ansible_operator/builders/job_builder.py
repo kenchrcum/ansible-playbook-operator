@@ -229,7 +229,7 @@ def build_manual_run_job(
     volumes.append({"name": "home", "emptyDir": {}})
     volume_mounts.append({"name": "home", "mountPath": "/home/ansible"})
 
-    # Mount SSH secret when using ssh
+    # Mount SSH secret and add token env var when using auth
     if repository:
         repo_spec = repository.get("spec", {})
         auth = repo_spec.get("auth") or {}
@@ -243,6 +243,14 @@ def build_manual_run_job(
                     "name": "ssh-auth",
                     "mountPath": "/home/ansible/.ssh",
                     "readOnly": True,
+                }
+            )
+        elif auth_method == "token" and auth_secret_name:
+            # Add token as environment variable for git authentication
+            env_list.append(
+                {
+                    "name": "REPO_TOKEN",
+                    "valueFrom": {"secretKeyRef": {"name": auth_secret_name, "key": "token"}},
                 }
             )
 
@@ -279,15 +287,82 @@ def build_manual_run_job(
     inventory_path = playbook_spec.get("inventoryPath")
     inventory_paths = playbook_spec.get("inventoryPaths", [])
 
+    # Build git clone script if repository is provided
+    script_parts = []
+
+    if repository:
+        repo_spec = repository.get("spec", {})
+        repo_url = repo_spec.get("url", "")
+        repo_revision = repo_spec.get("revision")
+        repo_branch = repo_spec.get("branch") or "main"
+        repo_paths = repo_spec.get("paths") or {}
+        requirements_file = repo_paths.get("requirementsFile") or "requirements.yml"
+
+        auth = repo_spec.get("auth") or {}
+        auth_method = auth.get("method")
+
+        ssh_cfg = repo_spec.get("ssh") or {}
+        strict_host_key = ssh_cfg.get("strictHostKeyChecking", True)
+
+        # Setup SSH auth
+        script_parts.append("mkdir -p $HOME/.ssh")
+
+        if auth_method == "ssh":
+            script_parts.append(
+                "install -m 0600 /home/ansible/.ssh/ssh-privatekey $HOME/.ssh/id_rsa"
+            )
+            if strict_host_key and known_hosts_available:
+                script_parts.append(
+                    'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa '
+                    "-o UserKnownHostsFile=/home/ansible/.ssh/known_hosts "
+                    '-o StrictHostKeyChecking=yes"'
+                )
+            elif strict_host_key and not known_hosts_available:
+                script_parts.append(
+                    "echo 'known_hosts not provided while strictHostKeyChecking=true' >&2 && exit 1"
+                )
+            else:
+                script_parts.append(
+                    'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa -o StrictHostKeyChecking=no"'
+                )
+        elif auth_method == "token":
+            script_parts.extend(
+                [
+                    "GIT_HOST=github.com",
+                    'if echo "'
+                    + repo_url
+                    + '" | grep -q "github.com"; then GIT_HOST=github.com; fi',
+                    "umask 077",
+                    'printf "machine %s login oauth2 password %s\\n" "$GIT_HOST" "$REPO_TOKEN" > $HOME/.netrc',
+                ]
+            )
+
+        # Clone repository
+        script_parts.append(f'git clone "{repo_url}" /workspace/repo')
+        script_parts.append("cd /workspace/repo")
+
+        # Checkout specific revision or branch
+        if repo_revision:
+            script_parts.append(f'git checkout --detach "{repo_revision}"')
+        else:
+            script_parts.append(f'git checkout "{repo_branch}"')
+
+        # Install galaxy requirements if present
+        script_parts.append(
+            f"if [ -f {requirements_file} ]; then ansible-galaxy install -r {requirements_file}; fi"
+        )
+    else:
+        # No repository - assume playbook is mounted via other means
+        script_parts.append("cd /workspace/repo")
+
     # Determine inventory argument
     inventory_arg = ""
     if inventory_path:
-        inventory_arg = f"-i /workspace/repo/{inventory_path}"
+        inventory_arg = f"-i {inventory_path}"
     elif inventory_paths:
-        inventory_args = [f"/workspace/repo/{path}" for path in inventory_paths]
-        inventory_arg = f"-i {','.join(inventory_args)}"
+        inventory_arg = f"-i {','.join(inventory_paths)}"
     else:
-        inventory_arg = "-i /workspace/repo/inventory"
+        inventory_arg = "-i inventory"
 
     # Build execution options
     execution = playbook_spec.get("execution", {})
@@ -323,17 +398,19 @@ def build_manual_run_job(
     # Build vault password file argument
     vault_arg = ""
     if vault_password_secret_ref:
-        vault_arg = "--vault-password-file /home/ansible/.vault-password"
+        vault_arg = "--vault-password-file /home/ansible/.vault-password/password"
 
-    # Construct full command
+    # Build final ansible-playbook command
     execution_str = " ".join(execution_args)
     vault_str = f" {vault_arg}" if vault_arg else ""
 
-    command = [
-        "/bin/bash",
-        "-c",
-        f"cd /workspace/repo && ansible-playbook {inventory_arg} {execution_str}{vault_str} {playbook_path}",
-    ]
+    script_parts.append(
+        f"ansible-playbook {inventory_arg} {execution_str}{vault_str} {playbook_path}"
+    )
+
+    # Construct full command
+    full_script = " && ".join(script_parts)
+    command = ["/bin/bash", "-c", full_script]
 
     # Build Job manifest
     job_name = f"{playbook_name}-manual-{run_id[:8]}"

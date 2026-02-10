@@ -471,7 +471,7 @@ class TestManualRunJobBuilder:
         # Verify command includes multiple inventory paths
         command = job_manifest["spec"]["template"]["spec"]["containers"][0]["command"]
         command_str = " ".join(command)
-        assert "/workspace/repo/inventory/hosts,/workspace/repo/inventory/prod" in command_str
+        assert "inventory/hosts,inventory/prod" in command_str
 
     def test_build_manual_run_job_security_context(self):
         """Test that manual run Job has proper security context."""
