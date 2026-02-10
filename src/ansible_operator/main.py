@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from contextlib import suppress
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from time import monotonic
 from typing import Any
 
@@ -15,17 +15,13 @@ from . import metrics
 from .builders.cronjob_builder import build_cronjob
 from .builders.job_builder import build_connectivity_probe_job
 from .constants import (
+    ANNOTATION_OWNER_UID,
     API_GROUP,
     API_GROUP_VERSION,
-    ANNOTATION_OWNER_UID,
-    COND_AUTH_VALID,
     COND_BLOCKED_BY_CONCURRENCY,
-    COND_CLONE_READY,
     COND_READY,
     EXECUTOR_SERVICE_ACCOUNT_ENV,
-    FINALIZER,
     LABEL_MANAGED_BY,
-    LABEL_OWNER_KIND,
     LABEL_OWNER_NAME,
     LABEL_OWNER_UID,
     LABEL_RUN_ID,
@@ -446,7 +442,7 @@ def _update_schedule_conditions(
             kind="Schedule",
             namespace=namespace,
             name=schedule_name,
-            reason=f"ConditionChanged",
+            reason="ConditionChanged",
             message=f"BlockedByConcurrency condition changed to {new_blocked_status}: {new_blocked_message}",
             type_=event_type,
         )
@@ -488,7 +484,7 @@ def _update_schedule_conditions(
             kind="Schedule",
             namespace=namespace,
             name=schedule_name,
-            reason=f"ConditionChanged",
+            reason="ConditionChanged",
             message=f"Ready condition changed to {new_ready_status}: {new_ready_message}",
             type_=event_type,
         )
@@ -1121,12 +1117,36 @@ def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
 
     # Get Job status
     status = job.get("status", {})
+
+    # Only process completed jobs - check for completion conditions
+    # A Job is complete when it has succeeded or failed AND has a completionTime
+    # or when the Job has terminal conditions
+    completion_time_str = status.get("completionTime")
+    conditions = status.get("conditions", [])
+
+    # Check if job has reached a terminal state
+    is_complete = False
+    is_failed = False
+
+    for condition in conditions:
+        if condition.get("type") == "Complete" and condition.get("status") == "True":
+            is_complete = True
+            break
+        if condition.get("type") == "Failed" and condition.get("status") == "True":
+            is_complete = True
+            is_failed = True
+            break
+
+    # If no terminal condition and no completion time, job is still running
+    if not is_complete and not completion_time_str:
+        return
+
     succeeded = status.get("succeeded", 0)
     failed = status.get("failed", 0)
-    completion_time = datetime.now(timezone.utc).isoformat()
+    completion_time = completion_time_str or datetime.now(UTC).isoformat()
 
-    # Determine final status
-    if succeeded > 0:
+    # Determine final status based on terminal conditions
+    if succeeded > 0 and not is_failed:
         metrics.JOB_RUNS_TOTAL.labels(kind="Playbook", result="success").inc()
         # Record job duration
         start_time = status.get("startTime")
@@ -1143,15 +1163,17 @@ def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
         reason = "JobSucceeded"
         message = "Manual run completed successfully"
         event_type = "Normal"
-    elif failed > 0:
+    elif is_failed or failed > 0:
         metrics.JOB_RUNS_TOTAL.labels(kind="Playbook", result="failure").inc()
         # Record job duration
         start_time = status.get("startTime")
-        completion_time = status.get("completionTime")
-        if start_time and completion_time:
+        completion_time_actual = status.get("completionTime")
+        if start_time and completion_time_actual:
             try:
                 start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
-                completion_dt = datetime.fromisoformat(completion_time.replace("Z", "+00:00"))
+                completion_dt = datetime.fromisoformat(
+                    completion_time_actual.replace("Z", "+00:00")
+                )
                 duration_seconds = (completion_dt - start_dt).total_seconds()
                 metrics.JOB_RUN_DURATION.labels(kind="Playbook").observe(duration_seconds)
             except Exception:
@@ -1161,7 +1183,7 @@ def handle_manual_run_job_completion(event: dict[str, Any], **_: Any) -> None:
         message = "Manual run failed"
         event_type = "Warning"
     else:
-        # Job is still running or in unknown state
+        # Job completed but without clear success or failure - shouldn't happen
         return
 
     # Update Playbook status
@@ -1361,6 +1383,30 @@ def reconcile_playbook(
         annotations = meta.get("annotations", {})
         run_id = manual_run_service.detect_manual_run_request(annotations)
         if run_id:
+            # Check if a job with this run ID already exists to prevent duplicates
+            batch_api = client.BatchV1Api()
+            try:
+                job_list = batch_api.list_namespaced_job(
+                    namespace=namespace,
+                    label_selector=f"{LABEL_RUN_ID}={run_id}",
+                )
+                if job_list.items:
+                    # Job already exists for this run ID, clear annotation and skip
+                    structured_logging.logger.info(
+                        "Manual run Job already exists for run ID",
+                        controller="Playbook",
+                        resource=f"{namespace}/{name}",
+                        uid=uid,
+                        event="manual-run",
+                        reason="JobAlreadyExists",
+                        run_id=run_id,
+                    )
+                    manual_run_service.clear_manual_run_annotation(name, namespace)
+                    return
+            except Exception:
+                # If we can't check, proceed with caution
+                pass
+
             # Get repository object for manual run
             repository_obj: dict[str, Any] | None = None
             known_hosts_available: bool = False
@@ -1507,6 +1553,7 @@ def reconcile_schedule(
     spec: dict[str, Any],
     status: dict[str, Any],
     patch: kopf.Patch,
+    meta: kopf.Meta,
     name: str,
     namespace: str,
     uid: str,
@@ -1547,6 +1594,163 @@ def reconcile_schedule(
                 type_="Warning",
             )
             return
+
+        # Check for manual run request
+        annotations = meta.get("annotations", {})
+        run_id = manual_run_service.detect_manual_run_request(annotations)
+        if run_id:
+            # Check if a job with this run ID already exists to prevent duplicates
+            batch_api = client.BatchV1Api()
+            try:
+                job_list = batch_api.list_namespaced_job(
+                    namespace=namespace,
+                    label_selector=f"{LABEL_RUN_ID}={run_id}",
+                )
+                if job_list.items:
+                    # Job already exists for this run ID, clear annotation and skip
+                    structured_logging.logger.info(
+                        "Manual run Job already exists for run ID",
+                        controller="Schedule",
+                        resource=f"{namespace}/{name}",
+                        uid=uid,
+                        event="manual-run",
+                        reason="JobAlreadyExists",
+                        run_id=run_id,
+                    )
+                    manual_run_service.clear_schedule_manual_run_annotation(name, namespace)
+                    # Continue with normal reconciliation after handling manual run
+                    # Fall through to CronJob creation/update
+            except Exception:
+                # If we can't check, proceed with caution
+                pass
+
+            # Get the referenced Playbook
+            api = client.CustomObjectsApi()
+            playbook_obj: dict[str, Any] = {}
+            try:
+                playbook_obj = api.get_namespaced_custom_object(
+                    group=API_GROUP,
+                    version="v1alpha1",
+                    namespace=namespace,
+                    plural="playbooks",
+                    name=playbook_ref["name"],
+                )
+            except Exception as e:
+                structured_logging.logger.error(
+                    f"Failed to fetch Playbook for manual run: {str(e)}",
+                    controller="Schedule",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="manual_run",
+                    reason="PlaybookNotFound",
+                )
+                _emit_event(
+                    kind="Schedule",
+                    namespace=namespace,
+                    name=name,
+                    reason="ManualRunFailed",
+                    message=f"Failed to fetch Playbook '{playbook_ref['name']}'",
+                    type_="Warning",
+                )
+                # Clear the annotation to prevent retry loops
+                manual_run_service.clear_schedule_manual_run_annotation(name, namespace)
+                return
+
+            # Get repository object for manual run
+            repository_obj: dict[str, Any] | None = None
+            known_hosts_available: bool = False
+            try:
+                repo_ref = (playbook_obj.get("spec") or {}).get("repositoryRef") or {}
+                if repo_ref.get("name"):
+                    repository_obj = api.get_namespaced_custom_object(
+                        group=API_GROUP,
+                        version="v1alpha1",
+                        namespace=namespace,
+                        plural="repositories",
+                        name=repo_ref["name"],
+                    )
+                    # Check if known hosts ConfigMap is available
+                    if repository_obj:
+                        repo_spec = repository_obj.get("spec", {})
+                        ssh_cfg = repo_spec.get("ssh") or {}
+                        known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
+                        if known_hosts_cm:
+                            try:
+                                v1 = client.CoreV1Api()
+                                v1.read_namespaced_config_map(known_hosts_cm, namespace)
+                                known_hosts_available = True
+                            except client.exceptions.ApiException:
+                                known_hosts_available = False
+            except Exception:
+                repository_obj = None
+                known_hosts_available = False
+
+            # Create manual run Job
+            try:
+                job_name = manual_run_service.create_schedule_manual_run_job(
+                    schedule_name=name,
+                    namespace=namespace,
+                    playbook_obj=playbook_obj,
+                    repository_obj=repository_obj,
+                    run_id=run_id,
+                    owner_uid=uid,
+                    known_hosts_available=known_hosts_available,
+                )
+
+                # Update Schedule status
+                manual_run_service.update_schedule_manual_run_status(
+                    schedule_name=name,
+                    namespace=namespace,
+                    run_id=run_id,
+                    job_name=job_name,
+                    status="Running",
+                    reason="JobCreated",
+                    message=f"Manual run Job '{job_name}' created",
+                )
+
+                # Clear the annotation
+                manual_run_service.clear_schedule_manual_run_annotation(name, namespace)
+
+                # Emit event
+                structured_logging.logger.info(
+                    "Manual run Job created",
+                    controller="Schedule",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="manual_run",
+                    reason="ManualRunJobCreated",
+                    job_name=job_name,
+                    run_id=run_id,
+                )
+                _emit_event(
+                    kind="Schedule",
+                    namespace=namespace,
+                    name=name,
+                    reason="ManualRunJobCreated",
+                    message=f"Manual run Job '{job_name}' created with run ID '{run_id}'",
+                )
+            except Exception as e:
+                structured_logging.logger.error(
+                    f"Failed to create manual run Job: {str(e)}",
+                    controller="Schedule",
+                    resource=f"{namespace}/{name}",
+                    uid=uid,
+                    event="manual_run",
+                    reason="ManualRunFailed",
+                )
+                _emit_event(
+                    kind="Schedule",
+                    namespace=namespace,
+                    name=name,
+                    reason="ManualRunFailed",
+                    message=f"Failed to create manual run Job: {str(e)}",
+                    type_="Warning",
+                )
+                # Clear the annotation to prevent retry loops
+                manual_run_service.clear_schedule_manual_run_annotation(name, namespace)
+
+            # Continue with normal reconciliation after handling manual run
+            # Fall through to CronJob creation/update
 
         # Fetch referenced Playbook and its Repository (best-effort)
         api = client.CustomObjectsApi()

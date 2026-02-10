@@ -161,6 +161,133 @@ class TestManualRunService:
 
         assert patch_body["metadata"]["annotations"][ANNOTATION_RUN_NOW] is None
 
+    @patch("ansible_operator.services.manual_run.client.BatchV1Api")
+    def test_create_schedule_manual_run_job(self, mock_batch_api):
+        """Test creation of manual run Job for Schedule."""
+        service = ManualRunService()
+        mock_api_instance = Mock()
+        mock_batch_api.return_value = mock_api_instance
+
+        playbook_obj = {
+            "spec": {
+                "playbookPath": "site.yml",
+                "inventoryPath": "inventory/hosts",
+                "execution": {
+                    "tags": ["deploy"],
+                    "checkMode": True,
+                },
+            }
+        }
+
+        repository_obj = {
+            "spec": {
+                "url": "https://github.com/example/repo.git",
+                "auth": {
+                    "method": "ssh",
+                    "secretRef": {"name": "ssh-key"},
+                },
+            }
+        }
+
+        job_name = service.create_schedule_manual_run_job(
+            schedule_name="test-schedule",
+            namespace="test-ns",
+            playbook_obj=playbook_obj,
+            repository_obj=repository_obj,
+            run_id="test-run-456",
+            owner_uid="schedule-uid",
+            known_hosts_available=True,
+        )
+
+        assert job_name.startswith("test-schedule-manual-")
+        mock_api_instance.create_namespaced_job.assert_called_once()
+
+        # Verify Job manifest structure
+        call_args = mock_api_instance.create_namespaced_job.call_args
+        job_manifest = call_args[1]["body"]
+
+        assert job_manifest["metadata"]["labels"][LABEL_RUN_ID] == "test-run-456"
+        assert job_manifest["metadata"]["labels"]["ansible.cloud37.dev/run-type"] == "manual"
+        # Verify owner is Schedule, not Playbook
+        owner_refs = job_manifest["metadata"]["ownerReferences"]
+        assert owner_refs[0]["kind"] == "Schedule"
+        assert owner_refs[0]["name"] == "test-schedule"
+
+    @patch("ansible_operator.services.manual_run.client.CustomObjectsApi")
+    def test_update_schedule_manual_run_status(self, mock_custom_api):
+        """Test updating Schedule status with manual run information."""
+        service = ManualRunService()
+        mock_api_instance = Mock()
+        mock_custom_api.return_value = mock_api_instance
+
+        service.update_schedule_manual_run_status(
+            schedule_name="test-schedule",
+            namespace="test-ns",
+            run_id="test-run-456",
+            job_name="test-job",
+            status="Running",
+            reason="ManualRunStarted",
+            message="Job created",
+        )
+
+        mock_api_instance.patch_namespaced_custom_object_status.assert_called_once()
+
+        # Verify status update structure
+        call_args = mock_api_instance.patch_namespaced_custom_object_status.call_args
+        assert call_args[1]["plural"] == "schedules"
+        patch_body = call_args[1]["body"]
+
+        assert "lastManualRun" in patch_body["status"]
+        manual_run = patch_body["status"]["lastManualRun"]
+        assert manual_run["runId"] == "test-run-456"
+        assert manual_run["jobRef"] == "test-ns/test-job"
+        assert manual_run["status"] == "Running"
+        assert manual_run["reason"] == "ManualRunStarted"
+        assert manual_run["message"] == "Job created"
+
+    @patch("ansible_operator.services.manual_run.client.CustomObjectsApi")
+    def test_update_schedule_manual_run_status_with_completion_time(self, mock_custom_api):
+        """Test updating Schedule status with completion time."""
+        service = ManualRunService()
+        mock_api_instance = Mock()
+        mock_custom_api.return_value = mock_api_instance
+
+        service.update_schedule_manual_run_status(
+            schedule_name="test-schedule",
+            namespace="test-ns",
+            run_id="test-run-456",
+            job_name="test-job",
+            status="Succeeded",
+            reason="JobSucceeded",
+            message="Job completed",
+            completion_time="2024-01-01T12:00:00Z",
+        )
+
+        # Verify completion time is included
+        call_args = mock_api_instance.patch_namespaced_custom_object_status.call_args
+        patch_body = call_args[1]["body"]
+
+        manual_run = patch_body["status"]["lastManualRun"]
+        assert manual_run["completionTime"] == "2024-01-01T12:00:00Z"
+
+    @patch("ansible_operator.services.manual_run.client.CustomObjectsApi")
+    def test_clear_schedule_manual_run_annotation(self, mock_custom_api):
+        """Test clearing manual run annotation from Schedule."""
+        service = ManualRunService()
+        mock_api_instance = Mock()
+        mock_custom_api.return_value = mock_api_instance
+
+        service.clear_schedule_manual_run_annotation("test-schedule", "test-ns")
+
+        mock_api_instance.patch_namespaced_custom_object.assert_called_once()
+
+        # Verify annotation is set to None and plural is schedules
+        call_args = mock_api_instance.patch_namespaced_custom_object.call_args
+        assert call_args[1]["plural"] == "schedules"
+        patch_body = call_args[1]["body"]
+
+        assert patch_body["metadata"]["annotations"][ANNOTATION_RUN_NOW] is None
+
 
 class TestManualRunJobBuilder:
     """Test manual run Job builder functionality."""
