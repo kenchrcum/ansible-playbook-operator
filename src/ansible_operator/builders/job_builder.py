@@ -220,6 +220,28 @@ def build_manual_run_job(
 
     # Build environment variables from secret mappings
     env_list: list[dict[str, Any]] = []
+    for item in secrets_cfg.get("env") or []:
+        env_var_name = item.get("envVarName")
+        secret_ref = item.get("secretRef") or {}
+        if env_var_name and secret_ref.get("name") and secret_ref.get("key"):
+            env_list.append(
+                {
+                    "name": env_var_name,
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": secret_ref["name"],
+                            "key": secret_ref["key"],
+                        }
+                    },
+                }
+            )
+
+    env_from_list: list[dict[str, Any]] = []
+    for ref in secrets_cfg.get("envFromSecretRefs") or []:
+        name_ref = ref.get("name")
+        if name_ref:
+            env_from_list.append({"secretRef": {"name": name_ref}})
+
     volumes: list[dict[str, Any]] = []
     volume_mounts: list[dict[str, Any]] = []
 
@@ -391,6 +413,15 @@ def build_manual_run_job(
     if execution.get("step"):
         execution_args.append("--step")
 
+    # Build extra vars argument
+    extra_vars_arg = ""
+    extra_vars = playbook_spec.get("extraVars") or {}
+    if extra_vars:
+        import json
+
+        extra_vars_json = json.dumps(extra_vars)
+        extra_vars_arg = f"--extra-vars '{extra_vars_json}'"
+
     # Build vault password file argument
     vault_arg = ""
     if vault_password_secret_ref:
@@ -398,10 +429,11 @@ def build_manual_run_job(
 
     # Build final ansible-playbook command
     execution_str = " ".join(execution_args)
+    extra_vars_str = f" {extra_vars_arg}" if extra_vars_arg else ""
     vault_str = f" {vault_arg}" if vault_arg else ""
 
     script_parts.append(
-        f"ansible-playbook {inventory_arg} {execution_str}{vault_str} {playbook_path}"
+        f"ansible-playbook {inventory_arg}{extra_vars_str} {execution_str}{vault_str} {playbook_path}"
     )
 
     # Construct full command
@@ -475,6 +507,7 @@ def build_manual_run_job(
                                 "capabilities": {"drop": ["ALL"]},
                             },
                             "env": env_list,
+                            **({"envFrom": env_from_list} if env_from_list else {}),
                             "volumeMounts": volume_mounts,
                             "resources": runtime.get("resources", {}),
                         }
