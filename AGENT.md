@@ -447,18 +447,47 @@ meta_mock.get.side_effect = lambda key, default=None: None if key == "deletionTi
 
 ## Documentation
 
-### Architecture
-- `architecture/development-plan.md` is the living design document
-- Update before implementing significant changes
-- Document design decisions and tradeoffs
-- `architecture/backward-compatibility-policy.md` for detailed compatibility guidelines
+### Architecture & Design Documents
+
+**Design-First Principle**: Update `architecture/development-plan.md` before coding significant changes.
+
+**Document Structure**:
+- Keep documents concise but complete
+- Prefer lists and tables to prose
+- Include rationale for decisions and trade-offs
+- Link to alternatives when relevant
+
+**Change Management**: Each architectural change shall:
+1. Update `architecture/development-plan.md` with the new desired state
+2. Note implications for CRDs, RBAC, Helm, and testing
+3. Add risks and mitigations if applicable
+4. Add examples to `examples/` that reflect the latest design
+
+**Key Documents**:
+- `architecture/development-plan.md` - Living design document
+- `architecture/backward-compatibility-policy.md` - Detailed compatibility guidelines
+- `architecture/TODO.md` - Task tracking (update with `[x]` format)
+
+### CRD Documentation
+- Document spec and status fields with defaults and validation summaries
+- Include condition types and their meaning
+- Provide sample YAML for each CRD
+- Maintain a changelog section for CRD version changes and migrations
 
 ### Examples
-- Must be runnable in kind/minikube
-- Follow security defaults
+- Must be self-contained and runnable on kind/minikube
+- Use minimal privileges by default
+- Include opt-in examples for elevated scenarios
+- Show manual-run annotation usage and sample CronJob outcomes in `status`
 - Include comments explaining key fields
-- Minimal viable examples (no unnecessary complexity)
+- Never include real secret values; reference `Secret` names only
 - Examples: `values-namespace-watch.yaml`, `values-cluster-watch.yaml`, `values-rbac-presets.yaml`, `playbook-execution-options.yaml`, `playbook-check-mode.yaml`
+
+### Security & Compliance Documentation
+- Call out security defaults explicitly (RBAC presets, pod security, image pinning)
+- Never include real secret values in examples or docs
+- Document upgrade/migration steps when applicable
+- Address least-privilege RBAC and multi-tenancy implications
 
 ## Quality Gates
 
@@ -473,6 +502,18 @@ Before merging, verify:
 - [ ] Pre-commit checks pass
 - [ ] TODO list updated with completed items
 - [ ] Changes committed with descriptive conventional commit message
+
+### Architecture PR Review Checklist
+For PRs affecting architecture, design, or documentation:
+- [ ] Are status conditions defined and updated for new features?
+- [ ] Are observability signals (events, metrics, logs) covered?
+- [ ] Are least-privilege RBAC and multi-tenancy implications addressed?
+- [ ] Does Helm layout keep CRDs under `crds/` and avoid templating schemas?
+- [ ] Are upgrade/migration steps documented when applicable?
+- [ ] Has `architecture/development-plan.md` been updated with the new desired state?
+- [ ] Are implications for CRDs, RBAC, Helm, and testing noted?
+- [ ] Are risks and mitigations documented if applicable?
+- [ ] Do examples in `examples/` reflect the latest design?
 
 ## Common Pitfalls to Avoid
 
