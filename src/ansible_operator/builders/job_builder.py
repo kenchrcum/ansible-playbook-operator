@@ -241,7 +241,7 @@ def build_manual_run_job(
             volume_mounts.append(
                 {
                     "name": "ssh-auth",
-                    "mountPath": "/home/ansible/.ssh",
+                    "mountPath": "/ssh-auth",
                     "readOnly": True,
                 }
             )
@@ -258,12 +258,11 @@ def build_manual_run_job(
         ssh_cfg = repo_spec.get("ssh") or {}
         ssh_known_hosts_cm = (ssh_cfg.get("knownHostsConfigMapRef") or {}).get("name")
         if ssh_known_hosts_cm and known_hosts_available:
-            volumes.append({"name": "known-hosts", "configMap": {"name": ssh_known_hosts_cm}})
+            volumes.append({"name": "ssh-known", "configMap": {"name": ssh_known_hosts_cm}})
             volume_mounts.append(
                 {
-                    "name": "known-hosts",
-                    "mountPath": "/home/ansible/.ssh/known_hosts",
-                    "subPath": "known_hosts",
+                    "name": "ssh-known",
+                    "mountPath": "/ssh-knownhosts",
                     "readOnly": True,
                 }
             )
@@ -276,8 +275,7 @@ def build_manual_run_job(
             volume_mounts.append(
                 {
                     "name": "vault-password",
-                    "mountPath": "/home/ansible/.vault-password",
-                    "subPath": "password",
+                    "mountPath": "/vault-password",
                     "readOnly": True,
                 }
             )
@@ -308,13 +306,11 @@ def build_manual_run_job(
         script_parts.append("mkdir -p $HOME/.ssh")
 
         if auth_method == "ssh":
-            script_parts.append(
-                "install -m 0600 /home/ansible/.ssh/ssh-privatekey $HOME/.ssh/id_rsa"
-            )
+            script_parts.append("install -m 0600 /ssh-auth/ssh-privatekey $HOME/.ssh/id_rsa")
             if strict_host_key and known_hosts_available:
                 script_parts.append(
                     'export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/id_rsa '
-                    "-o UserKnownHostsFile=/home/ansible/.ssh/known_hosts "
+                    "-o UserKnownHostsFile=/ssh-knownhosts/known_hosts "
                     '-o StrictHostKeyChecking=yes"'
                 )
             elif strict_host_key and not known_hosts_available:
@@ -398,7 +394,7 @@ def build_manual_run_job(
     # Build vault password file argument
     vault_arg = ""
     if vault_password_secret_ref:
-        vault_arg = "--vault-password-file /home/ansible/.vault-password/password"
+        vault_arg = "--vault-password-file /vault-password/password"
 
     # Build final ansible-playbook command
     execution_str = " ".join(execution_args)

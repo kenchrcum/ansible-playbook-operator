@@ -397,12 +397,12 @@ class TestManualRunJobBuilder:
 
         vault_mount = next((m for m in volume_mounts if m["name"] == "vault-password"), None)
         assert vault_mount is not None
-        assert vault_mount["mountPath"] == "/home/ansible/.vault-password"
+        assert vault_mount["mountPath"] == "/vault-password"
 
         # Verify command includes vault password file
         command = job_manifest["spec"]["template"]["spec"]["containers"][0]["command"]
         command_str = " ".join(command)
-        assert "--vault-password-file /home/ansible/.vault-password" in command_str
+        assert "--vault-password-file /vault-password/password" in command_str
 
     def test_build_manual_run_job_with_ssh_auth(self):
         """Test building manual run Job with SSH authentication."""
@@ -443,13 +443,13 @@ class TestManualRunJobBuilder:
         assert ssh_volume is not None
         assert ssh_volume["secret"]["secretName"] == "ssh-key"
 
-        known_hosts_volume = next((v for v in volumes if v["name"] == "known-hosts"), None)
+        known_hosts_volume = next((v for v in volumes if v["name"] == "ssh-known"), None)
         assert known_hosts_volume is not None
         assert known_hosts_volume["configMap"]["name"] == "known-hosts"
 
         ssh_mount = next((m for m in volume_mounts if m["name"] == "ssh-auth"), None)
         assert ssh_mount is not None
-        assert ssh_mount["mountPath"] == "/home/ansible/.ssh"
+        assert ssh_mount["mountPath"] == "/ssh-auth"
 
     def test_build_manual_run_job_with_multiple_inventories(self):
         """Test building manual run Job with multiple inventory paths."""
