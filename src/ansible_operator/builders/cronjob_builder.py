@@ -3,8 +3,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..constants import (
-    API_GROUP,
     ANNOTATION_OWNER_UID,
+    API_GROUP,
     LABEL_MANAGED_BY,
     LABEL_OWNER_KIND,
     LABEL_OWNER_NAME,
@@ -93,6 +93,30 @@ def build_cronjob(
 
     volumes = list(runtime.get("volumes") or [])
     volume_mounts = list(runtime.get("volumeMounts") or [])
+
+    # Process file mounts
+    for i, file_mount in enumerate(secrets_cfg.get("fileMounts") or []):
+        secret_ref = file_mount.get("secretRef") or {}
+        mount_path = file_mount.get("mountPath")
+        secret_name = secret_ref.get("name")
+
+        if secret_name and mount_path:
+            volume_name = f"secret-mount-{i}"
+            secret_vol: dict[str, Any] = {"secretName": secret_name}
+
+            items = file_mount.get("items")
+            if items:
+                secret_vol["items"] = items
+
+            volumes.append({"name": volume_name, "secret": secret_vol})
+            volume_mounts.append(
+                {
+                    "name": volume_name,
+                    "mountPath": mount_path,
+                    "readOnly": True,
+                }
+            )
+
     service_account_name = runtime.get("serviceAccountName")
     active_deadline_seconds = runtime.get("activeDeadlineSeconds")
 

@@ -245,6 +245,29 @@ def build_manual_run_job(
     volumes: list[dict[str, Any]] = []
     volume_mounts: list[dict[str, Any]] = []
 
+    # Process file mounts
+    for i, file_mount in enumerate(secrets_cfg.get("fileMounts") or []):
+        secret_ref = file_mount.get("secretRef") or {}
+        mount_path = file_mount.get("mountPath")
+        secret_name = secret_ref.get("name")
+
+        if secret_name and mount_path:
+            volume_name = f"secret-mount-{i}"
+            secret_vol: dict[str, Any] = {"secretName": secret_name}
+
+            items = file_mount.get("items")
+            if items:
+                secret_vol["items"] = items
+
+            volumes.append({"name": volume_name, "secret": secret_vol})
+            volume_mounts.append(
+                {
+                    "name": volume_name,
+                    "mountPath": mount_path,
+                    "readOnly": True,
+                }
+            )
+
     # Add volumes for workspace and home dir to support readOnlyRootFilesystem
     volumes.append({"name": "workspace", "emptyDir": {}})
     volume_mounts.append({"name": "workspace", "mountPath": "/workspace"})

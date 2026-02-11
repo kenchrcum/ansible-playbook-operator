@@ -1,20 +1,20 @@
 """Unit tests for metrics functionality."""
 
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
-from datetime import datetime, timezone
 
 import pytest
 from kubernetes import client
 
 from ansible_operator import metrics
 from ansible_operator.main import (
-    reconcile_repository,
-    reconcile_playbook,
-    reconcile_schedule,
     handle_job_completion,
     handle_manual_run_job_completion,
     handle_schedule_job_event,
+    reconcile_playbook,
+    reconcile_repository,
+    reconcile_schedule,
 )
 
 
@@ -66,7 +66,6 @@ class TestMetrics:
             patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
             patch("ansible_operator.main._emit_event") as mock_emit,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
             mock_batch_api = MagicMock()
@@ -138,7 +137,6 @@ class TestMetrics:
                 "ansible_operator.services.dependencies.DependencyService"
             ) as mock_dependency_service_class,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
             mock_git_service = MagicMock()
@@ -199,7 +197,6 @@ class TestMetrics:
             patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
             patch("ansible_operator.main._emit_event") as mock_emit,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
             mock_batch_api = MagicMock()
@@ -219,10 +216,14 @@ class TestMetrics:
             metrics.RECONCILE_TOTAL.clear()
             metrics.RECONCILE_DURATION.clear()
 
+            meta = MagicMock()
+            meta.get.return_value = {}
+
             reconcile_schedule(
                 spec=spec,
                 status=status,
                 patch=mock_patch,
+                meta=meta,
                 name="test-schedule",
                 namespace="default",
                 uid="uid-123",

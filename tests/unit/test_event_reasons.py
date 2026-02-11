@@ -7,10 +7,10 @@ import pytest
 from kubernetes import client
 
 from ansible_operator.main import (
-    reconcile_repository,
-    reconcile_playbook,
-    reconcile_schedule,
     handle_manual_run_job_completion,
+    reconcile_playbook,
+    reconcile_repository,
+    reconcile_schedule,
 )
 
 
@@ -77,7 +77,6 @@ class TestEventReasons:
             patch("ansible_operator.main._emit_event") as mock_emit,
             patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
 
@@ -123,7 +122,6 @@ class TestEventReasons:
             patch("ansible_operator.main._emit_event") as mock_emit,
             patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
 
@@ -156,7 +154,6 @@ class TestEventReasons:
             patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
             patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
             mock_batch_api = MagicMock()
@@ -172,10 +169,14 @@ class TestEventReasons:
                 "metadata": {"name": "test-cronjob"}
             }
 
+            meta = MagicMock()
+            meta.get.return_value = {}
+
             reconcile_schedule(
                 spec=spec,
                 status=status,
                 patch=mock_patch,
+                meta=meta,
                 name="test-schedule",
                 namespace="default",
                 uid="uid-123",
@@ -249,7 +250,6 @@ class TestEventReasons:
             patch("ansible_operator.main.client.CustomObjectsApi") as mock_api_class,
             patch("ansible_operator.main.client.BatchV1Api") as mock_batch_api_class,
         ):
-
             mock_api = MagicMock()
             mock_api_class.return_value = mock_api
             mock_batch_api = MagicMock()

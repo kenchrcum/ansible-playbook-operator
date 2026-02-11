@@ -537,3 +537,39 @@ class TestManualRunJobBuilder:
         assert owner_ref["uid"] == "test-uid"
         assert owner_ref["controller"] is True
         assert owner_ref["blockOwnerDeletion"] is False
+
+    def test_manual_run_builder_file_mounts(self):
+        """Test that fileMounts are correctly mounted in the manual run Job."""
+        playbook_spec = {
+            "playbookPath": "site.yml",
+            "secrets": {
+                "fileMounts": [
+                    {
+                        "secretRef": {"name": "manual-secret"},
+                        "mountPath": "/etc/manual/secret",
+                    }
+                ]
+            },
+        }
+
+        job = build_manual_run_job(
+            playbook_name="test-playbook",
+            namespace="test-ns",
+            playbook_spec=playbook_spec,
+            run_id="test-run-123",
+            owner_uid="test-uid",
+        )
+
+        volumes = job["spec"]["template"]["spec"]["volumes"]
+        container = job["spec"]["template"]["spec"]["containers"][0]
+        volume_mounts = container["volumeMounts"]
+
+        # Verify file mount
+        vol = next((v for v in volumes if v["name"] == "secret-mount-0"), None)
+        assert vol is not None
+        assert vol["secret"]["secretName"] == "manual-secret"
+
+        mount = next((m for m in volume_mounts if m["name"] == "secret-mount-0"), None)
+        assert mount is not None
+        assert mount["mountPath"] == "/etc/manual/secret"
+        assert mount["readOnly"] is True

@@ -766,3 +766,65 @@ def test_cronjob_builder_execution_defaults():
     assert "--flush-cache" not in args
     assert "--force-handlers" not in args
     assert "--step" not in args
+
+
+def test_cronjob_builder_file_mounts():
+    """Test that fileMounts are correctly mounted in the CronJob."""
+    playbook = {
+        "spec": {
+            "playbookPath": "playbook.yml",
+            "secrets": {
+                "fileMounts": [
+                    {
+                        "secretRef": {"name": "my-secret-1"},
+                        "mountPath": "/etc/secrets/my-secret-1",
+                    },
+                    {
+                        "secretRef": {"name": "my-secret-2"},
+                        "mountPath": "/etc/secrets/my-secret-2",
+                        "items": [
+                            {"key": "key1", "path": "path1"},
+                            {"key": "key2", "path": "path2"},
+                        ],
+                    },
+                ]
+            },
+        }
+    }
+    schedule_spec: dict[str, Any] = {}
+    cron = build_cronjob(
+        schedule_name="test-sched",
+        namespace="default",
+        computed_schedule="5 * * * *",
+        playbook=playbook,
+        schedule_spec=schedule_spec,
+        owner_uid="uid-1234",
+    )
+
+    volumes = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["volumes"]
+    container = cron["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][0]
+    volume_mounts = container["volumeMounts"]
+
+    # Verify first file mount (simple)
+    vol1 = next((v for v in volumes if v["name"] == "secret-mount-0"), None)
+    assert vol1 is not None
+    assert vol1["secret"]["secretName"] == "my-secret-1"
+    assert "items" not in vol1["secret"]
+
+    mount1 = next((m for m in volume_mounts if m["name"] == "secret-mount-0"), None)
+    assert mount1 is not None
+    assert mount1["mountPath"] == "/etc/secrets/my-secret-1"
+    assert mount1["readOnly"] is True
+
+    # Verify second file mount (with items)
+    vol2 = next((v for v in volumes if v["name"] == "secret-mount-1"), None)
+    assert vol2 is not None
+    assert vol2["secret"]["secretName"] == "my-secret-2"
+    assert len(vol2["secret"]["items"]) == 2
+    assert vol2["secret"]["items"][0] == {"key": "key1", "path": "path1"}
+    assert vol2["secret"]["items"][1] == {"key": "key2", "path": "path2"}
+
+    mount2 = next((m for m in volume_mounts if m["name"] == "secret-mount-1"), None)
+    assert mount2 is not None
+    assert mount2["mountPath"] == "/etc/secrets/my-secret-2"
+    assert mount2["readOnly"] is True

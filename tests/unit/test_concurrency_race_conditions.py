@@ -6,14 +6,14 @@ and operator restarts (on.resume) scenarios.
 
 import threading
 import time
-from typing import Any
-from unittest.mock import Mock, patch, MagicMock
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from kubernetes import client
 
-from ansible_operator.constants import COND_READY, COND_BLOCKED_BY_CONCURRENCY
+from ansible_operator.constants import COND_BLOCKED_BY_CONCURRENCY, COND_READY
 from ansible_operator.main import (
     _check_concurrent_jobs,
     _update_schedule_conditions,
@@ -328,12 +328,15 @@ class TestConcurrencyRaceConditions:
                         status: dict[str, Any] = {}
                         patch_obj = Mock()
                         patch_obj.status = status
+                        meta = Mock()
+                        meta.get.return_value = {}
 
                         # Call reconcile_schedule
                         reconcile_schedule(
                             spec=spec,
                             status=status,
                             patch=patch_obj,
+                            meta=meta,
                             name="test-schedule",
                             namespace="test-ns",
                             uid="test-uid",
