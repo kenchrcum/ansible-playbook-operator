@@ -5,7 +5,7 @@
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.4"  # This tag is ignored when digest is present
+    tag: "0.1.5"  # This tag is ignored when digest is present
     digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     pullPolicy: IfNotPresent
   resources:

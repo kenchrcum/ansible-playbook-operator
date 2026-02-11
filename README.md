@@ -1,7 +1,7 @@
 # Ansible Playbook Operator
 
 [![AI Assisted](https://img.shields.io/badge/AI-Assisted_Development-blueviolet)](AI_DISCLAIMER.md)
-![Version](https://img.shields.io/badge/version-0.1.4-blue.svg)
+![Version](https://img.shields.io/badge/version-0.1.5-blue.svg)
 [![License](https://img.shields.io/badge/license-Unlicense-lightgrey.svg)](LICENSE)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-playbook-operator)](https://artifacthub.io/packages/search?repo=ansible-playbook-operator)
 
@@ -573,7 +573,7 @@ Key configuration options:
 operator:
   image:
     repository: kenchrcum/ansible-playbook-operator
-    tag: "0.1.4"
+    tag: "0.1.5"
   resources:
     requests:
       cpu: 100m

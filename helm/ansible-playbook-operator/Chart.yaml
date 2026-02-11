@@ -1,8 +1,8 @@
 apiVersion: v2
 name: ansible-playbook-operator
 description: Lightweight GitOps-focused operator for running Ansible playbooks
-version: 0.1.4
-appVersion: "0.1.4"
+version: 0.1.5
+appVersion: "0.1.5"
 type: application
 keywords:
   - kubernetes
@@ -23,6 +23,6 @@ annotations:
   licenses: "Unlicense"
   images: |
     - name: kenchrcum/ansible-playbook-operator
-      image: kenchrcum/ansible-playbook-operator:0.1.4
+      image: kenchrcum/ansible-playbook-operator:0.1.5
     - name: kenchrcum/ansible-runner
       image: kenchrcum/ansible-runner:13
