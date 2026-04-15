@@ -253,10 +253,10 @@ executorDefaults:
 **Scan Images:**
 ```bash
 # Using Trivy
-trivy image kenchrcum/ansible-playbook-operator:0.1.6
+trivy image kenchrcum/ansible-playbook-operator:0.1.7
 
 # Using Grype
-grype kenchrcum/ansible-playbook-operator:0.1.6
+grype kenchrcum/ansible-playbook-operator:0.1.7
 ```
 
 **CI/CD Integration:**
