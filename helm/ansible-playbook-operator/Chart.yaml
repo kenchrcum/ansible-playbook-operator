@@ -20,7 +20,7 @@ maintainers:
     url: https://github.com/kenchrcum
 annotations:
   category: "Operators"
-  licenses: "Unlicense"
+  licenses: "MIT"
   images: |
     - name: kenchrcum/ansible-playbook-operator
       image: kenchrcum/ansible-playbook-operator:0.1.7

@@ -3,7 +3,7 @@ name = "ansible-playbook-operator"
 version = "0.1.7"
 description = "Kubernetes operator for executing Ansible playbooks with Kopf"
 requires-python = ">=3.14"
-license = { text = "Unlicense" }
+license = { text = "MIT" }
 readme = ""  # intentionally omitted to avoid generating docs automatically
 dynamic = ["dependencies"]
 

@@ -1,68 +1,92 @@
 # Ansible Playbook Operator
 
-[![AI Assisted](https://img.shields.io/badge/AI-Assisted_Development-blueviolet)](AI_DISCLAIMER.md)
 ![Version](https://img.shields.io/badge/version-0.1.7-blue.svg)
-[![License](https://img.shields.io/badge/license-Unlicense-lightgrey.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/ansible-playbook-operator)](https://artifacthub.io/packages/search?repo=ansible-playbook-operator)
 
-A lightweight, GitOps-focused Kubernetes operator for executing Ansible playbooks using the [Kopf](https://kopf.readthedocs.io) framework. Built with security, observability, and operational simplicity as core principles.
+**Run Ansible playbooks in Kubernetes. No AWX required.**
 
-## 🎯 Overview
+## The Problem
 
-The Ansible Playbook Operator brings Ansible automation directly into your Kubernetes workflows. It enables you to:
+Many teams have Ansible playbooks they need to run on a schedule — compliance checks, infrastructure validation, configuration drift correction, reports, cleanup tasks.
 
-- **Manage Ansible playbook execution as Kubernetes resources** through custom CRDs
-- **Schedule playbooks** with Kubernetes CronJobs and intelligent random scheduling to avoid thundering herds
-- **GitOps integration** with seamless Git repository cloning (SSH/HTTPS/Token auth)
-- **Secure by default** with least-privilege RBAC, hardened pod security contexts, and secret injection patterns
-- **Observable** with Prometheus metrics, structured logging, and Kubernetes Events
+The "official" solution is [AWX](https://github.com/ansible/awx) or Red Hat Ansible Automation Platform. AWX brings a full GUI, its own RBAC system, user management, PostgreSQL, Redis, and 15–20 pods. If all you need is scheduled playbook execution, that's a lot of overhead.
 
-### Key Features
+The alternative — manually building Kubernetes CronJobs with Ansible Runner images — works, but it's YAML boilerplate every time, with no declarative repository management, no Vault support, and no metrics out of the box.
 
-✨ **Three Declarative CRDs**
-- `Repository` — Define Git repositories with Ansible content
-- `Playbook` — Configure playbook execution environments
-- `Schedule` — Schedule playbook runs with CronJobs
+And since July 2024, AWX hasn't published a new release.
 
-🔐 **Security First**
-- Non-root containers with read-only root filesystem
-- Seccomp RuntimeDefault profile
-- Multiple secret injection modes (env vars, files, vault passwords)
-- SSH known_hosts pinning for strict host key checking
-- RBAC presets: minimal, scoped, and opt-in cluster-admin
+## The Solution
 
-⏰ **Smart Scheduling**
-- Standard cron expressions supported
-- Random schedule macros: `@hourly-random`, `@daily-random`, `@weekly-random`, `@monthly-random`, `@yearly-random`
-- Deterministic randomization prevents thundering herds while remaining stable per resource
+A lightweight Kubernetes operator with three CRDs. Define a repository, configure a playbook, set a schedule — done. Kubernetes-native, GitOps-first, no overhead.
 
-📊 **Production Ready Observability**
-- Prometheus metrics (reconciliation counters, durations)
-- Kubernetes Events for lifecycle transitions
-- Structured JSON logs with correlation IDs
-- Status conditions following Kubernetes conventions
+```yaml
+# 1. Point to your Git repo
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Repository
+metadata:
+  name: my-repo
+spec:
+  url: https://github.com/myorg/ansible-repo
+  branch: main
 
-🎨 **Flexible Execution**
-- Custom executor images (default: `kenchrcum/ansible-runner`)
-- Resource limits, node selectors, tolerations, affinity rules
-- Separate executor ServiceAccount with configurable RBAC presets for enhanced security isolation
-- Service account override for least-privilege job execution
-- Optional PVC-backed cache for `~/.ansible` collections/roles
-- Support for secrets, extra vars, inventory paths, and ansible.cfg
-- Comprehensive Ansible execution options: tags, check mode, verbosity, timeouts, forks, strategies
-- Multiple secret injection modes: environment variables, file mounts, vault passwords
+# 2. Define which playbook to run
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Playbook
+metadata:
+  name: compliance-check
+spec:
+  repositoryRef:
+    name: my-repo
+  playbookPath: playbooks/compliance.yml
 
-## 📋 Prerequisites
+# 3. Schedule it
+apiVersion: ansible.cloud37.dev/v1alpha1
+kind: Schedule
+metadata:
+  name: nightly-compliance
+spec:
+  playbookRef:
+    name: compliance-check
+  schedule: "@daily-random"
+```
 
-- Kubernetes 1.24+ cluster
-- Helm 3.8+
-- Optional: Prometheus for metrics collection
+That's it. The operator creates a Kubernetes CronJob that clones your repo and runs the playbook on schedule, with Vault support, Prometheus metrics, and hardened security contexts.
 
-## 🚀 Quick Start
+## Born from Production
+
+We've spent years building and operating AWX and Ansible Tower in customer environments. For most use cases — periodic playbook execution, compliance checks, configuration management — AWX was massively oversized. At the same time, hand-crafting Kubernetes CronJobs with Ansible Runner images was error-prone and hard to maintain. So we built an operator that does exactly what most teams actually need: run playbooks from Git repos, on a schedule, with Vault support and metrics — without everything else.
+
+## When to Use What
+
+If you need the features in the left column, use AWX. If you just want to run playbooks in Kubernetes — read on.
+
+| Feature | AWX / AAP | Ansible Playbook Operator |
+|---|---|---|
+| GUI / Dashboard | Yes | No — Kubernetes-native |
+| Built-in RBAC | Yes | No — uses Kubernetes RBAC |
+| User Management | Yes | No |
+| REST API | Yes | No — Kubernetes API |
+| Database (PostgreSQL) | Required | Not needed |
+| Redis | Required | Not needed |
+| Pods for Installation | ~15–20 | 1 |
+| Scheduling | Own scheduler | Kubernetes CronJobs |
+| GitOps Integration | Possible | Native (Git repo as CRD) |
+| Metrics | Own dashboard | Prometheus |
+| Vault Support | Yes | Yes |
+| Latest Release | July 2024 | Actively maintained |
+
+## Use Cases
+
+- **Periodic compliance checks** — Run Ansible against your infrastructure on schedule to verify security baselines, CIS benchmarks, or internal policies.
+- **Configuration drift detection and correction** — Detect when systems deviate from their desired state and bring them back automatically.
+- **Scheduled maintenance tasks** — Cleanup jobs, certificate rotation, report generation, log archival.
+- **Multi-cluster configuration** — Manage multiple clusters from a central operator cluster using Ansible's flexibility.
+- **Migration path** — Integrate existing Ansible playbooks into Kubernetes workflows without rewriting them. If it runs with `ansible-playbook`, it runs here.
+
+## Quick Start
 
 ### Installation
-
-Install the operator using Helm:
 
 ```bash
 helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
@@ -81,7 +105,7 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
   --set operator.metrics.enabled=true
 ```
 
-### Basic Example
+### Full Example
 
 1. **Create a Repository** pointing to your Ansible Git repository:
 
@@ -141,7 +165,48 @@ spec:
 
 The operator will create a Kubernetes CronJob that executes your playbook at a deterministic random time each day.
 
-## 📚 Custom Resource Definitions
+## Key Features
+
+**Three Declarative CRDs**
+- `Repository` — Define Git repositories with Ansible content
+- `Playbook` — Configure playbook execution environments
+- `Schedule` — Schedule playbook runs with CronJobs
+
+**Security First**
+- Non-root containers with read-only root filesystem
+- Seccomp RuntimeDefault profile
+- Multiple secret injection modes (env vars, files, vault passwords)
+- SSH known_hosts pinning for strict host key checking
+- RBAC presets: minimal, scoped, and opt-in cluster-admin
+
+**Smart Scheduling**
+- Standard cron expressions supported
+- Random schedule macros: `@hourly-random`, `@daily-random`, `@weekly-random`, `@monthly-random`, `@yearly-random`
+- Deterministic randomization prevents thundering herds while remaining stable per resource
+
+**Production Ready Observability**
+- Prometheus metrics (reconciliation counters, durations)
+- Kubernetes Events for lifecycle transitions
+- Structured JSON logs with correlation IDs
+- Status conditions following Kubernetes conventions
+
+**Flexible Execution**
+- Custom executor images (default: `kenchrcum/ansible-runner`)
+- Resource limits, node selectors, tolerations, affinity rules
+- Separate executor ServiceAccount with configurable RBAC presets for enhanced security isolation
+- Service account override for least-privilege job execution
+- Optional PVC-backed cache for `~/.ansible` collections/roles
+- Support for secrets, extra vars, inventory paths, and ansible.cfg
+- Comprehensive Ansible execution options: tags, check mode, verbosity, timeouts, forks, strategies
+- Multiple secret injection modes: environment variables, file mounts, vault passwords
+
+## Prerequisites
+
+- Kubernetes 1.24+ cluster
+- Helm 3.8+
+- Optional: Prometheus for metrics collection
+
+## Custom Resource Definitions
 
 ### Repository
 
@@ -344,7 +409,7 @@ The computed schedule (e.g., `47 3 * * 2`) is published to `status.computedSched
 - `status.lastJobRef` — Reference to most recent Job
 - `status.conditions` — `Active`, `BlockedByConcurrency`, `Ready`
 
-## 🔒 Security
+## Security
 
 ### Default Security Posture
 
@@ -426,7 +491,7 @@ helm install ansible-playbook-operator ./helm/ansible-playbook-operator \
 - Pin known_hosts for SSH to prevent MITM attacks
 - Use `strictHostKeyChecking: true` in production
 
-## 📊 Observability
+## Observability
 
 ### Metrics
 
@@ -466,7 +531,7 @@ Structured JSON logs with fields:
 
 **No secrets are logged.** The operator sanitizes all log output.
 
-## 🛠️ Development
+## Development
 
 ### Prerequisites
 
@@ -563,7 +628,7 @@ docker build -t kenchrcum/ansible-playbook-operator:dev .
 kopf run --standalone -m ansible_operator.main
 ```
 
-## 🎛️ Configuration
+## Configuration
 
 ### Helm Values
 
@@ -620,7 +685,7 @@ Configured in `main.py`:
 - **Metrics port:** 8080
 - **Field manager:** `ansible-operator` (Server-Side Apply)
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these guidelines:
 
@@ -644,7 +709,7 @@ Contributions are welcome! Please follow these guidelines:
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 
-## 📖 Documentation
+## Documentation
 
 ### Core Documentation
 - [Development Plan](./architecture/development-plan.md) - Comprehensive architectural documentation
@@ -668,17 +733,17 @@ The [Development Plan](./architecture/development-plan.md) covers:
 - Job/CronJob generation patterns
 - Observability and testing strategies
 
-## 📝 License
+## License
 
-This project is licensed under the **Unlicense**.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-## 🔗 Links
+## Links
 
 - **Home:** https://github.com/kenchrcum/ansible-playbook-operator
 - **Issues:** https://github.com/kenchrcum/ansible-playbook-operator/issues
 - **Helm Chart:** `./helm/ansible-playbook-operator`
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with [Kopf](https://kopf.readthedocs.io) — Kubernetes Operator Pythonic Framework
 - Uses [kubernetes-client/python](https://github.com/kubernetes-client/python)

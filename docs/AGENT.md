@@ -6,7 +6,7 @@ This document provides AI coding assistants with essential context and constrain
 
 A Kubernetes operator that runs Ansible playbooks in response to custom resource changes. Written in Python 3.14, deployed via Helm, with controllers managing executor pods.
 
-**License**: Unlicense (public domain dedication) — no attribution required, maximum permissiveness, no warranty.
+**License**: MIT — permissive, attribution required, no warranty.
 
 ## Core Principles
 
